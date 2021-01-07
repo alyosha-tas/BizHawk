@@ -72,9 +72,6 @@ namespace SNESHawk
 		// operations that can take place in an instruction
 		enum Uop
 		{
-			//sometimes i used this as a marker for unsupported instructions, but it is very inconsistent
-			Unsupported,
-
 			Fetch1, Fetch1_Real, Fetch2, Fetch3,
 			//used by instructions with no second opcode byte (6502 fetches a byte anyway but won't increment PC for these)
 			FetchDummy,
@@ -86,14 +83,11 @@ namespace SNESHawk
 
 			//[absolute WRITE]
 			Abs_WRITE_STA, Abs_WRITE_STX, Abs_WRITE_STY,
-			Abs_WRITE_SAX, //unofficials
 			//[absolute READ]
 			Abs_READ_BIT, Abs_READ_LDA, Abs_READ_LDY, Abs_READ_ORA, Abs_READ_LDX, Abs_READ_CMP, Abs_READ_ADC, Abs_READ_CPX, Abs_READ_SBC, Abs_READ_AND, Abs_READ_EOR, Abs_READ_CPY, Abs_READ_NOP,
-			Abs_READ_LAX, //unofficials
 			//[absolute RMW]
 			Abs_RMW_Stage4, Abs_RMW_Stage6,
 			Abs_RMW_Stage5_INC, Abs_RMW_Stage5_DEC, Abs_RMW_Stage5_LSR, Abs_RMW_Stage5_ROL, Abs_RMW_Stage5_ASL, Abs_RMW_Stage5_ROR,
-			Abs_RMW_Stage5_SLO, Abs_RMW_Stage5_RLA, Abs_RMW_Stage5_SRE, Abs_RMW_Stage5_RRA, Abs_RMW_Stage5_DCP, Abs_RMW_Stage5_ISC, //unofficials
 
 			//[absolute JUMP]
 			JMP_abs,
@@ -106,7 +100,6 @@ namespace SNESHawk
 			//[zero page RMW]
 			ZP_RMW_Stage3, ZP_RMW_Stage5,
 			ZP_RMW_DEC, ZP_RMW_INC, ZP_RMW_ASL, ZP_RMW_LSR, ZP_RMW_ROR, ZP_RMW_ROL,
-			ZP_RMW_SLO, ZP_RMW_RLA, ZP_RMW_SRE, ZP_RMW_RRA, ZP_RMW_DCP, ZP_RMW_ISC,
 			//[zero page READ]
 			ZP_READ_EOR, ZP_READ_BIT, ZP_READ_ORA, ZP_READ_LDA, ZP_READ_LDY, ZP_READ_LDX, ZP_READ_CPX, ZP_READ_SBC, ZP_READ_CPY, ZP_READ_NOP, ZP_READ_ADC, ZP_READ_AND, ZP_READ_CMP, ZP_READ_LAX,
 
@@ -117,24 +110,20 @@ namespace SNESHawk
 			IdxInd_Stage6_READ_LAX,
 			IdxInd_Stage6_WRITE_STA, IdxInd_Stage6_WRITE_SAX,
 			IdxInd_Stage6_RMW, //work happens in stage 7
-			IdxInd_Stage7_RMW_SLO, IdxInd_Stage7_RMW_RLA, IdxInd_Stage7_RMW_SRE, IdxInd_Stage7_RMW_RRA, IdxInd_Stage7_RMW_ISC, IdxInd_Stage7_RMW_DCP, //unofficials
 			IdxInd_Stage8_RMW,
 
 			//[absolute indexed]
 			AbsIdx_Stage3_X, AbsIdx_Stage3_Y, AbsIdx_Stage4,
 			//[absolute indexed WRITE]
 			AbsIdx_WRITE_Stage5_STA,
-			AbsIdx_WRITE_Stage5_SHY, AbsIdx_WRITE_Stage5_SHX, //unofficials
 			AbsIdx_WRITE_Stage5_ERROR,
 			//[absolute indexed READ]
 			AbsIdx_READ_Stage4,
 			AbsIdx_READ_Stage5_LDA, AbsIdx_READ_Stage5_CMP, AbsIdx_READ_Stage5_SBC, AbsIdx_READ_Stage5_ADC, AbsIdx_READ_Stage5_EOR, AbsIdx_READ_Stage5_LDX, AbsIdx_READ_Stage5_AND, AbsIdx_READ_Stage5_ORA, AbsIdx_READ_Stage5_LDY, AbsIdx_READ_Stage5_NOP,
-			AbsIdx_READ_Stage5_LAX, //unofficials
 			AbsIdx_READ_Stage5_ERROR,
 			//[absolute indexed RMW]
 			AbsIdx_RMW_Stage5, AbsIdx_RMW_Stage7,
 			AbsIdx_RMW_Stage6_ROR, AbsIdx_RMW_Stage6_DEC, AbsIdx_RMW_Stage6_INC, AbsIdx_RMW_Stage6_ASL, AbsIdx_RMW_Stage6_LSR, AbsIdx_RMW_Stage6_ROL,
-			AbsIdx_RMW_Stage6_SLO, AbsIdx_RMW_Stage6_RLA, AbsIdx_RMW_Stage6_SRE, AbsIdx_RMW_Stage6_RRA, AbsIdx_RMW_Stage6_DCP, AbsIdx_RMW_Stage6_ISC, //unofficials
 
 			IncS, DecS,
 			PushPCL, PushPCH, PushP, PullP, PullPCL, PullPCH_NoInc, PushA, PullA_NoInc, PullP_NoInc,
@@ -148,15 +137,14 @@ namespace SNESHawk
 			Imp_TSX, Imp_TXS, Imp_TAX, Imp_TAY, Imp_TYA, Imp_TXA,
 
 			//[immediate]
-			Imm_CMP, Imm_ADC, Imm_AND, Imm_SBC, Imm_ORA, Imm_EOR, Imm_CPY, Imm_CPX, Imm_ANC, Imm_ASR, Imm_ARR, Imm_LXA, Imm_AXS,
+			Imm_CMP, Imm_ADC, Imm_AND, Imm_SBC, Imm_ORA, Imm_EOR, Imm_CPY, Imm_CPX, Imm_ANC, Imm_ASR, Imm_ARR, Imm_AXS,
 			Imm_LDA, Imm_LDX, Imm_LDY,
-			Imm_Unsupported,
 
 			//sub-ops
 			NZ_X, NZ_Y, NZ_A,
-			RelBranch_Stage2_BNE, RelBranch_Stage2_BPL, RelBranch_Stage2_BCC, RelBranch_Stage2_BCS, RelBranch_Stage2_BEQ, RelBranch_Stage2_BMI, RelBranch_Stage2_BVC, RelBranch_Stage2_BVS,
+			RelBranch_Stage2_BNE, RelBranch_Stage2_BPL, RelBranch_Stage2_BCC, RelBranch_Stage2_BCS, RelBranch_Stage2_BEQ, RelBranch_Stage2_BMI, RelBranch_Stage2_BVC, RelBranch_Stage2_BVS, RelBranch_Stage2_A,
 			RelBranch_Stage2, RelBranch_Stage3, RelBranch_Stage4,
-			_Eor, _Bit, _Cpx, _Cpy, _Cmp, _Adc, _Sbc, _Ora, _And, _Anc, _Asr, _Arr, _Lxa, _Axs, //alu-related sub-ops
+			_Eor, _Bit, _Cpx, _Cpy, _Cmp, _Adc, _Sbc, _Ora, _And, _Anc, _Asr, _Arr, _Axs, //alu-related sub-ops
 
 			//JMP (addr) 0x6C
 			AbsInd_JMP_Stage4, AbsInd_JMP_Stage5,
@@ -168,15 +156,14 @@ namespace SNESHawk
 			IndIdx_READ_Stage6_LAX,
 			IndIdx_RMW_Stage5,
 			IndIdx_RMW_Stage6, //just reads from effective address
-			IndIdx_RMW_Stage7_SLO, IndIdx_RMW_Stage7_RLA, IndIdx_RMW_Stage7_SRE, IndIdx_RMW_Stage7_RRA, IndIdx_RMW_Stage7_ISC, IndIdx_RMW_Stage7_DCP, //unofficials
 			IndIdx_RMW_Stage8,
+
+			Ind_zp_Stage4,
 
 			End,
 			End_ISpecial, //same as end, but preserves the iflag set by the instruction
 			End_BranchSpecial,
 			End_SuppressInterrupt,
-
-			Jam,
 
 			// NOTE: jump to 256 here
 			VOP_Fetch1 = 256,
@@ -196,275 +183,275 @@ namespace SNESHawk
 			//0x00
 			Fetch2,					PushPCH,			PushPCL,				PushP_BRK,					FetchPCLVector,				FetchPCHVector,				End_SuppressInterrupt,		NOP,		NOP,		NOP,		NOP,		NOP,	/*BRK [implied]*/ 
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ORA,		End ,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (addr,X) [indexed indirect READ]*/ 
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/ 
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_SLO,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*SLO* (addr,X) [indexed indirect RMW] [unofficial]*/
-			Fetch2,					ZP_READ_NOP,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp [zero page READ]*/ 
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ORA,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA zp [zero page READ]*/ 
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ASL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_SLO,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SLO* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			FetchDummy,				PushP,				End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PHP [implied]*/ 
 			Imm_ORA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA #nn [immediate]*/ 
 			Imp_ASL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL A [accumulator]*/ 
-			Imm_ANC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ANC** [immediate] [unofficial]*/ 
-			Fetch2,					Fetch3,				Abs_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr [absolute READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ASL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_SLO,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SLO* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x10
 			RelBranch_Stage2_BPL,	End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BPL +/-rel*/ 
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_SLO,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*SLO (addr),Y* [indirect indexed RMW] [unofficial] */
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL zp,X [zero page indexed RMW]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_SLO,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SLO* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_CLC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CLC [implied]*/ 
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP 1A*/ 
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_SLO,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SLO* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_SLO,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SLO* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x20
 			Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JSR*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (addr,X) [indexed indirect READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_RLA,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*RLA* (addr,X) [indexed indirect RMW] [unofficial]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_BIT,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BIT zp [zero page READ]*/
 			Fetch2,					ZP_READ_AND,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_RLA,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RLA* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PLP [implied] */
 			Imm_AND,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND #nn [immediate]*/
 			Imp_ROL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL A [accumulator]*/
-			Imm_ANC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ANC** [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BIT addr [absolute]*/
 			Fetch2,					Fetch3,				Abs_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_RLA,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RLA* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x30,
 			RelBranch_Stage2_BMI,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BMI +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_RLA,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*RLA* (addr),Y* [indirect indexed RMW] [unofficial] */
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL zp,X [zero page indexed RMW]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_RLA,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RLA* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_SEC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SEC [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP 3A [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_RLA,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RLA* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_RLA,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RLA* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x40,
 			FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTI*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (addr,X) [indexed indirect READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_SRE,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*SRE* (addr,X) [indexed indirect RMW] [unofficial]*/
-			Fetch2,					ZP_READ_NOP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp [zero page READ]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_EOR,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_LSR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_SRE,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SRE* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			FetchDummy,				PushA,				End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PHA [implied]*/
 			Imm_EOR,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR #nn [immediate]*/
 			Imp_LSR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR A [accumulator]*/
-			Imm_ASR,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASR** [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					JMP_abs,			End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JMP addr [absolute]*/
 			Fetch2,					Fetch3,				Abs_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_LSR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_SRE,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SRE* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x50,
 			RelBranch_Stage2_BVC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BVC +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_SRE,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*SRE* (addr),Y* [indirect indexed RMW] [unofficial] */
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR zp,X [zero page indexed RMW]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_SRE,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SRE* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_CLI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CLI [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP 5A [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_SRE,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SRE* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_LSR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_SRE,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SRE* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x60,
 			FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTS*/	//can't fetch here because the PC isnt ready until the end of the last clock
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr,X) [indexed indirect READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_RRA,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*RRA* (addr,X) [indexed indirect RMW] [unofficial]*/
-			Fetch2,					ZP_READ_NOP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp [zero page READ]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_RRA,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RRA* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			FetchDummy,				IncS,				PullA_NoInc,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PLA [implied]*/
 			Imm_ADC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC #nn [immediate]*/
 			Imp_ROR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR A [accumulator]*/
-			Imm_ARR,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ARR** [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				AbsInd_JMP_Stage4,		AbsInd_JMP_Stage5,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JMP (addr) [absolute indirect JMP]*/
 			Fetch2,					Fetch3,				Abs_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_RRA,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RRA* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x70,
 			RelBranch_Stage2_BVS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BVS +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr),Y [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_RRA,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*RRA* (addr),Y [indirect indexed RMW Y] [unofficial] */
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR zp,X [zero page indexed RMW]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_RRA,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RRA* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_SEI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SEI [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP 7A [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_RRA,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RRA* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_RRA,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RRA* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x80,
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP #nn [immediate]*/
+			RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BRA +/-rel [relative]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_WRITE_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (addr,X) [indexed indirect WRITE]*/
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP #nn [immediate]*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_WRITE_SAX,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SAX* (addr,X) [indexed indirect WRITE] [unofficial]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_WRITE_STY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY zp [zero page WRITE]*/
 			Fetch2,					ZP_WRITE_STA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA zp [zero page WRITE]*/
 			Fetch2,					ZP_WRITE_STX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STX zp [zero page WRITE]*/
-			Fetch2,					ZP_WRITE_SAX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SAX* zp [zero page WRITE] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_DEY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEY [implied]*/
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP #nn [immediate]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_TXA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TXA [implied]*/
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ANE** [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY addr [absolute WRITE]*/
 			Fetch2,					Fetch3,				Abs_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA addr [absolute WRITE]*/
 			Fetch2,					Fetch3,				Abs_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STX addr [absolute WRITE]*/
-			Fetch2,					Fetch3,				Abs_WRITE_SAX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SAX* addr [absolute WRITE] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x90,
 			RelBranch_Stage2_BCC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BCC +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_WRITE_Stage5,		IndIdx_WRITE_Stage6_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (addr),Y [indirect indexed WRITE]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_WRITE_Stage5,		IndIdx_WRITE_Stage6_SHA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SHA** [indirect indexed WRITE] [unofficial] [not tested by blargg's instruction tests]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_STA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY zp,X [zero page indexed WRITE X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA zp,X [zero page indexed WRITE X]*/
 			Fetch2,					ZpIdx_Stage3_Y,		ZP_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STX zp,Y [zero page indexed WRITE Y]*/
-			Fetch2,					ZpIdx_Stage3_Y,		ZP_WRITE_SAX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SAX* zp,Y [zero page indexed WRITE Y] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_TYA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TYA [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA addr,Y [absolute indexed WRITE]*/
 			Imp_TXS,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TXS [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_ERROR,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SHS* addr,Y [absolute indexed WRITE Y] [unofficial] */
-			Fetch2, 				AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_SHY,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SHY** [absolute indexed WRITE] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA addr,X [absolute indexed WRITE]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_SHX,	End, 						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SHX* addr,Y [absolute indexed WRITE Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_SHY,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SHA* addr,Y [absolute indexed WRITE Y] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xA0,
 			Imm_LDY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_LDA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (addr,X) [indexed indirect READ]*/
 			Imm_LDX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX #nn [immediate]*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_LAX,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* (addr,X) [indexed indirect READ] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_LDY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY zp [zero page READ]*/
 			Fetch2,					ZP_READ_LDA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA zp [zero page READ]*/
 			Fetch2,					ZP_READ_LDX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX zp [zero page READ]*/
-			Fetch2,					ZP_READ_LAX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* zp [zero page READ] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_TAY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TAY [implied]*/
 			Imm_LDA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA #nn [immediate]*/
 			Imp_TAX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TAX [implied]*/
-			Imm_LXA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LXA** (ATX) [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX addr [absolute READ]*/
-			Fetch2,					Fetch3,				Abs_READ_LAX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* addr [absolute READ] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xB0,
 			RelBranch_Stage2_BCS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BCS +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_LAX,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* (addr),Y* [indirect indexed READ] [unofficial] */
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_Y,		ZP_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX zp,Y [zero page indexed READ Y]*/
-			Fetch2,					ZpIdx_Stage3_Y,		ZP_READ_LAX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* zp,Y [zero page indexed READ] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_CLV,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CLV [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA addr,Y* [absolute indexed READ Y]*/
 			Imp_TSX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TSX [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ERROR,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAS* addr,Y [absolute indexed READ Y] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDY,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDX,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX addr,Y* [absolute indexed READ Y]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LAX,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LAX* addr,Y [absolute indexed READ Y] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xC0,
 			Imm_CPY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (addr,X) [indexed indirect READ]*/
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP #nn [immediate]*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_DCP,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*DCP* (addr,X) [indexed indirect RMW] [unofficial]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY zp [zero page READ]*/
 			Fetch2,					ZP_READ_CMP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DCP,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DCP* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_INY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INY [implied]*/
 			Imm_CMP,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP #nn [immediate]*/
 			Imp_DEX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEX  [implied]*/
-			Imm_AXS,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AXS** [immediate] [unofficial]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_READ_CPY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_DEC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_DCP,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DCP* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xD0,
 			RelBranch_Stage2_BNE,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BNE +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_DCP,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*DCP* (addr),Y* [indirect indexed RMW Y] [unofficial] */
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC zp,X [zero page indexed RMW X]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DCP,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DCP* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_CLD,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CLD [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP DA [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DCP,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DCP* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DEC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DCP,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DCP* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xE0,
 			Imm_CPX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (addr,X) [indirect indexed]*/
-			Imm_Unsupported,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP #nn [immediate]*/
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_RMW,			IdxInd_Stage7_RMW_ISC,		IdxInd_Stage8_RMW,			End,		NOP,		NOP,		NOP,		NOP,	/*ISC* (addr,X) [indexed indirect RMW] [unofficial]*/
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX zp [zero page READ]*/
 			Fetch2,					ZP_READ_SBC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC zp [zero page RMW]*/
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ISC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISB* zp [zero page RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_INX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INX [implied]*/
 			Imm_SBC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC #nn [immediate READ]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP EA [implied]*/ //nothing happened here.. but the last thing to happen was a fetch,		so we can't pipeline the next fetch
-			Imm_SBC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISB #nn [immediate READ]*/
+			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP EA [implied]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					Fetch3,				Abs_READ_CPX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_INC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC addr [absolute RMW]*/
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ISC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISC* addr [absolute RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0xF0,
 			RelBranch_Stage2_BEQ,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BEQ +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (addr),Y* [indirect indexed READ]*/
-			Jam,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JAM*/
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_RMW_Stage5,			IndIdx_RMW_Stage6,			IndIdx_RMW_Stage7_ISC,		IndIdx_RMW_Stage8,			End,		NOP,		NOP,		NOP,		NOP,	/*ISC* (addr),Y* [indirect indexed RMW Y] [unofficial] */
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (zp) [indirect zp READ]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC zp,X [zero page indexed RMW X]*/
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ISC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISC* zp,X [zero page indexed RMW] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Imp_SED,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SED [implied]*/
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC addr,Y* [absolute indexed READ Y]*/
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP FA [implied]*/
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ISC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISC* addr,Y [absolute indexed RMW Y] [unofficial]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_NOP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP addr,X* [absolute indexed READ X]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_INC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC addr,X [absolute indexed RMW X]*/
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ISC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ISC* addr,X [absolute indexed RMW X] [unofficial]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			//0x100,
 			Fetch1,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*VOP_Fetch1*/
 			RelBranch_Stage3,		End_BranchSpecial,	NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*VOP_RelativeStuff*/
@@ -615,7 +602,6 @@ namespace SNESHawk
 			case Abs_WRITE_STA: Abs_WRITE_STA_F(); break;
 			case Abs_WRITE_STX: Abs_WRITE_STX_F(); break;
 			case Abs_WRITE_STY: Abs_WRITE_STY_F(); break;
-			case Abs_WRITE_SAX: Abs_WRITE_SAX_F(); break;
 			case ZP_WRITE_STA: ZP_WRITE_STA_F(); break;
 			case ZP_WRITE_STY: ZP_WRITE_STY_F(); break;
 			case ZP_WRITE_STX: ZP_WRITE_STX_F(); break;
@@ -636,13 +622,8 @@ namespace SNESHawk
 			case IndIdx_READ_Stage6_SBC: IndIdx_READ_Stage6_SBC_F(); break;
 			case IndIdx_READ_Stage6_ORA: IndIdx_READ_Stage6_ORA_F(); break;
 			case IndIdx_RMW_Stage6: IndIdx_RMW_Stage6_F(); break;
-			case IndIdx_RMW_Stage7_SLO: IndIdx_RMW_Stage7_SLO_F(); break;
-			case IndIdx_RMW_Stage7_SRE: IndIdx_RMW_Stage7_SRE_F(); break;
-			case IndIdx_RMW_Stage7_RRA: IndIdx_RMW_Stage7_RRA_F(); break;
-			case IndIdx_RMW_Stage7_ISC: IndIdx_RMW_Stage7_ISC_F(); break;
-			case IndIdx_RMW_Stage7_DCP: IndIdx_RMW_Stage7_DCP_F(); break;
-			case IndIdx_RMW_Stage7_RLA: IndIdx_RMW_Stage7_RLA_F(); break;
 			case IndIdx_RMW_Stage8: IndIdx_RMW_Stage8_F(); break;
+			case Ind_zp_Stage4: Ind_zp_Stage4_F(); break;
 			case RelBranch_Stage2_BVS: RelBranch_Stage2_BVS_F(); break;
 			case RelBranch_Stage2_BVC: RelBranch_Stage2_BVC_F(); break;
 			case RelBranch_Stage2_BMI: RelBranch_Stage2_BMI_F(); break;
@@ -651,6 +632,7 @@ namespace SNESHawk
 			case RelBranch_Stage2_BCC: RelBranch_Stage2_BCC_F(); break;
 			case RelBranch_Stage2_BEQ: RelBranch_Stage2_BEQ_F(); break;
 			case RelBranch_Stage2_BNE: RelBranch_Stage2_BNE_F(); break;
+			case RelBranch_Stage2_A: RelBranch_Stage2_A_F(); break;
 			case RelBranch_Stage2: RelBranch_Stage2_F(); break;
 			case RelBranch_Stage3: RelBranch_Stage3_F(); break;
 			case RelBranch_Stage4: RelBranch_Stage4_F(); break;
@@ -665,7 +647,6 @@ namespace SNESHawk
 			case Abs_READ_LDY: Abs_READ_LDY_F(); break;
 			case Abs_READ_LDX: Abs_READ_LDX_F(); break;
 			case Abs_READ_BIT: Abs_READ_BIT_F(); break;
-			case Abs_READ_LAX: Abs_READ_LAX_F(); break;
 			case Abs_READ_AND: Abs_READ_AND_F(); break;
 			case Abs_READ_EOR: Abs_READ_EOR_F(); break;
 			case Abs_READ_ORA: Abs_READ_ORA_F(); break;
@@ -703,16 +684,13 @@ namespace SNESHawk
 			case _Asr: _Asr_F(); break;
 			case _Axs: _Axs_F(); break;
 			case _Arr: _Arr_F(); break;
-			case _Lxa: _Lxa_F(); break;
 			case _Sbc: _Sbc_F(); break;
 			case _Adc: _Adc_F(); break;
-			case Unsupported: Unsupported_F(); break;
 			case Imm_EOR: Imm_EOR_F(); break;
 			case Imm_ANC: Imm_ANC_F(); break;
 			case Imm_ASR: Imm_ASR_F(); break;
 			case Imm_AXS: Imm_AXS_F(); break;
 			case Imm_ARR: Imm_ARR_F(); break;
-			case Imm_LXA: Imm_LXA_F(); break;
 			case Imm_ORA: Imm_ORA_F(); break;
 			case Imm_CPY: Imm_CPY_F(); break;
 			case Imm_CPX: Imm_CPX_F(); break;
@@ -723,7 +701,6 @@ namespace SNESHawk
 			case Imm_LDA: Imm_LDA_F(); break;
 			case Imm_LDX: Imm_LDX_F(); break;
 			case Imm_LDY: Imm_LDY_F(); break;
-			case Imm_Unsupported: Imm_Unsupported_F(); break;
 			case IdxInd_Stage3: IdxInd_Stage3_F(); break;
 			case IdxInd_Stage4: IdxInd_Stage4_F(); break;
 			case IdxInd_Stage5: IdxInd_Stage5_F(); break;
@@ -738,12 +715,6 @@ namespace SNESHawk
 			case IdxInd_Stage6_WRITE_STA: IdxInd_Stage6_WRITE_STA_F(); break;
 			case IdxInd_Stage6_WRITE_SAX: IdxInd_Stage6_WRITE_SAX_F(); break;
 			case IdxInd_Stage6_RMW: IdxInd_Stage6_RMW_F(); break;
-			case IdxInd_Stage7_RMW_SLO: IdxInd_Stage7_RMW_SLO_F(); break;
-			case IdxInd_Stage7_RMW_ISC: IdxInd_Stage7_RMW_ISC_F(); break;
-			case IdxInd_Stage7_RMW_DCP: IdxInd_Stage7_RMW_DCP_F(); break;
-			case IdxInd_Stage7_RMW_SRE: IdxInd_Stage7_RMW_SRE_F(); break;
-			case IdxInd_Stage7_RMW_RRA: IdxInd_Stage7_RMW_RRA_F(); break;
-			case IdxInd_Stage7_RMW_RLA: IdxInd_Stage7_RMW_RLA_F(); break;
 			case IdxInd_Stage8_RMW: IdxInd_Stage8_RMW_F(); break;
 			case PushP: PushP_F(); break;
 			case PushA: PushA_F(); break;
@@ -760,40 +731,25 @@ namespace SNESHawk
 			case ZP_RMW_INC: ZP_RMW_INC_F(); break;
 			case ZP_RMW_DEC: ZP_RMW_DEC_F(); break;
 			case ZP_RMW_ASL: ZP_RMW_ASL_F(); break;
-			case ZP_RMW_SRE: ZP_RMW_SRE_F(); break;
-			case ZP_RMW_RRA: ZP_RMW_RRA_F(); break;
-			case ZP_RMW_DCP: ZP_RMW_DCP_F(); break;
 			case ZP_RMW_LSR: ZP_RMW_LSR_F(); break;
 			case ZP_RMW_ROR: ZP_RMW_ROR_F(); break;
 			case ZP_RMW_ROL: ZP_RMW_ROL_F(); break;
-			case ZP_RMW_SLO: ZP_RMW_SLO_F(); break;
-			case ZP_RMW_ISC: ZP_RMW_ISC_F(); break;
-			case ZP_RMW_RLA: ZP_RMW_RLA_F(); break;
 			case AbsIdx_Stage3_Y: AbsIdx_Stage3_Y_F(); break;
 			case AbsIdx_Stage3_X: AbsIdx_Stage3_X_F(); break;
 			case AbsIdx_READ_Stage4: AbsIdx_READ_Stage4_F(); break;
 			case AbsIdx_Stage4: AbsIdx_Stage4_F(); break;
 			case AbsIdx_WRITE_Stage5_STA: AbsIdx_WRITE_Stage5_STA_F(); break;
-			case AbsIdx_WRITE_Stage5_SHY: AbsIdx_WRITE_Stage5_SHY_F(); break;
-			case AbsIdx_WRITE_Stage5_SHX: AbsIdx_WRITE_Stage5_SHX_F(); break;
 			case AbsIdx_WRITE_Stage5_ERROR: AbsIdx_WRITE_Stage5_ERROR_F(); break;
 			case AbsIdx_RMW_Stage5: AbsIdx_RMW_Stage5_F(); break;
 			case AbsIdx_RMW_Stage7: AbsIdx_RMW_Stage7_F(); break;
 			case AbsIdx_RMW_Stage6_DEC: AbsIdx_RMW_Stage6_DEC_F(); break;
-			case AbsIdx_RMW_Stage6_DCP: AbsIdx_RMW_Stage6_DCP_F(); break;
-			case AbsIdx_RMW_Stage6_ISC: AbsIdx_RMW_Stage6_ISC_F(); break;
 			case AbsIdx_RMW_Stage6_INC: AbsIdx_RMW_Stage6_INC_F(); break;
 			case AbsIdx_RMW_Stage6_ROL: AbsIdx_RMW_Stage6_ROL_F(); break;
 			case AbsIdx_RMW_Stage6_LSR: AbsIdx_RMW_Stage6_LSR_F(); break;
-			case AbsIdx_RMW_Stage6_SLO: AbsIdx_RMW_Stage6_SLO_F(); break;
-			case AbsIdx_RMW_Stage6_SRE: AbsIdx_RMW_Stage6_SRE_F(); break;
-			case AbsIdx_RMW_Stage6_RRA: AbsIdx_RMW_Stage6_RRA_F(); break;
-			case AbsIdx_RMW_Stage6_RLA: AbsIdx_RMW_Stage6_RLA_F(); break;
 			case AbsIdx_RMW_Stage6_ASL: AbsIdx_RMW_Stage6_ASL_F(); break;
 			case AbsIdx_RMW_Stage6_ROR: AbsIdx_RMW_Stage6_ROR_F(); break;
 			case AbsIdx_READ_Stage5_LDA: AbsIdx_READ_Stage5_LDA_F(); break;
 			case AbsIdx_READ_Stage5_LDX: AbsIdx_READ_Stage5_LDX_F(); break;
-			case AbsIdx_READ_Stage5_LAX: AbsIdx_READ_Stage5_LAX_F(); break;
 			case AbsIdx_READ_Stage5_LDY: AbsIdx_READ_Stage5_LDY_F(); break;
 			case AbsIdx_READ_Stage5_ORA: AbsIdx_READ_Stage5_ORA_F(); break;
 			case AbsIdx_READ_Stage5_NOP: AbsIdx_READ_Stage5_NOP_F(); break;
@@ -808,14 +764,8 @@ namespace SNESHawk
 			case Abs_RMW_Stage4: Abs_RMW_Stage4_F(); break;
 			case Abs_RMW_Stage5_INC: Abs_RMW_Stage5_INC_F(); break;
 			case Abs_RMW_Stage5_DEC: Abs_RMW_Stage5_DEC_F(); break;
-			case Abs_RMW_Stage5_DCP: Abs_RMW_Stage5_DCP_F(); break;
-			case Abs_RMW_Stage5_ISC: Abs_RMW_Stage5_ISC_F(); break;
 			case Abs_RMW_Stage5_ASL: Abs_RMW_Stage5_ASL_F(); break;
 			case Abs_RMW_Stage5_ROR: Abs_RMW_Stage5_ROR_F(); break;
-			case Abs_RMW_Stage5_SLO: Abs_RMW_Stage5_SLO_F(); break;
-			case Abs_RMW_Stage5_RLA: Abs_RMW_Stage5_RLA_F(); break;
-			case Abs_RMW_Stage5_SRE: Abs_RMW_Stage5_SRE_F(); break;
-			case Abs_RMW_Stage5_RRA: Abs_RMW_Stage5_RRA_F(); break;
 			case Abs_RMW_Stage5_ROL: Abs_RMW_Stage5_ROL_F(); break;
 			case Abs_RMW_Stage5_LSR: Abs_RMW_Stage5_LSR_F(); break;
 			case Abs_RMW_Stage6: Abs_RMW_Stage6_F(); break;
@@ -823,7 +773,6 @@ namespace SNESHawk
 			case End_SuppressInterrupt: End_SuppressInterrupt_F(); break;
 			case End: End_F(); break;
 			case End_BranchSpecial: End_BranchSpecial_F(); break;
-			case Jam: Jam_F(); break;
 			}
 		}
 
@@ -991,8 +940,6 @@ namespace SNESHawk
 
 		void Abs_WRITE_STY_F() { WriteMemory((uint16_t)((opcode3 << 8) + opcode2), Y); }
 
-		void Abs_WRITE_SAX_F() { WriteMemory((uint16_t)((opcode3 << 8) + opcode2), (uint8_t)(X & A)); }
-
 		void ZP_WRITE_STA_F() { WriteMemory(opcode2, A); }
 
 		void ZP_WRITE_STY_F() { WriteMemory(opcode2, Y); }
@@ -1000,6 +947,12 @@ namespace SNESHawk
 		void ZP_WRITE_STX_F() { WriteMemory(opcode2, X); }
 
 		void ZP_WRITE_SAX_F() { WriteMemory(opcode2, (uint8_t)(X & A)); }
+
+		void Ind_zp_Stage4_F() 
+		{
+			ea = (ReadMemory((uint8_t)(opcode2 + 1)) << 8)
+				| alu_temp;
+		}
 
 		void IndIdx_Stage3_F() { ea = ReadMemory(opcode2); }
 
@@ -1060,62 +1013,6 @@ namespace SNESHawk
 
 		void IndIdx_RMW_Stage6_F() { alu_temp = ReadMemory((uint16_t)ea); }
 
-		void IndIdx_RMW_Stage7_SLO_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)((value8 << 1));
-			A |= value8;
-			NZ_A_F();
-		}
-
-		void IndIdx_RMW_Stage7_SRE_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			A ^= value8;
-			NZ_A_F();
-		}
-
-		void IndIdx_RMW_Stage7_RRA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			_Adc_F();
-		}
-
-		void IndIdx_RMW_Stage7_ISC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 + 1);
-			_Sbc_F();
-		}
-
-		void IndIdx_RMW_Stage7_DCP_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 - 1);
-			FlagCset((temp8 & 1) != 0);
-			_Cmp_F();
-		}
-
-		void IndIdx_RMW_Stage7_RLA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			A &= value8;
-			NZ_A_F();
-		}
-
 		void IndIdx_RMW_Stage8_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
 
 		void RelBranch_Stage2_BVS_F()
@@ -1163,6 +1060,12 @@ namespace SNESHawk
 		void RelBranch_Stage2_BNE_F()
 		{
 			branch_taken = FlagZget() == false;
+			RelBranch_Stage2_F();
+		}
+
+		void RelBranch_Stage2_A_F()
+		{
+			branch_taken = true;
 			RelBranch_Stage2_F();
 		}
 
@@ -1228,14 +1131,6 @@ namespace SNESHawk
 		void Abs_READ_LDX_F() { X = ReadMemory((uint16_t)((opcode3 << 8) + opcode2)); NZ_X_F(); }
 
 		void Abs_READ_BIT_F() { alu_temp = ReadMemory((uint16_t)((opcode3 << 8) + opcode2)); _Bit_F(); }
-
-		void Abs_READ_LAX_F()
-		{
-			alu_temp = ReadMemory((uint16_t)((opcode3 << 8) + opcode2));
-			A = ReadMemory((uint16_t)((opcode3 << 8) + opcode2));
-			X = A;
-			NZ_A_F();
-		}
 
 		void Abs_READ_AND_F() { alu_temp = ReadMemory((uint16_t)((opcode3 << 8) + opcode2)); _And_F(); }
 
@@ -1384,14 +1279,6 @@ namespace SNESHawk
 			FlagZset((A == 0));
 		}
 
-		void _Lxa_F()
-		{
-			A |= 0xFF; //there is some debate about what this should be. it may depend on the 6502 variant. this is suggested by qeed's doc for the nes and passes blargg's instruction test
-			A &= (uint8_t)alu_temp;
-			X = A;
-			NZ_A_F();
-		}
-
 		void _Sbc_F()
 		{
 			value8 = (uint8_t)alu_temp;
@@ -1444,8 +1331,6 @@ namespace SNESHawk
 			}
 		}
 
-		void Unsupported_F() { }
-
 		void Imm_EOR_F() { alu_temp = ReadMemory(PC++); _Eor_F(); }
 
 		void Imm_ANC_F() { alu_temp = ReadMemory(PC++); _Anc_F(); }
@@ -1455,8 +1340,6 @@ namespace SNESHawk
 		void Imm_AXS_F() { alu_temp = ReadMemory(PC++); _Axs_F(); }
 
 		void Imm_ARR_F() { alu_temp = ReadMemory(PC++); _Arr_F(); }
-
-		void Imm_LXA_F() { alu_temp = ReadMemory(PC++); _Lxa_F(); }
 
 		void Imm_ORA_F() { alu_temp = ReadMemory(PC++); _Ora_F(); }
 
@@ -1477,8 +1360,6 @@ namespace SNESHawk
 		void Imm_LDX_F() { X = ReadMemory(PC++); NZ_X_F(); }
 
 		void Imm_LDY_F() { Y = ReadMemory(PC++); NZ_Y_F(); }
-
-		void Imm_Unsupported_F() { ReadMemory(PC++); }
 
 		void IdxInd_Stage3_F() { DummyReadMemory(opcode2); alu_temp = (opcode2 + X) & 0xFF; }
 
@@ -1512,63 +1393,6 @@ namespace SNESHawk
 		}
 
 		void IdxInd_Stage6_RMW_F() { alu_temp = ReadMemory((uint16_t)ea); }
-
-		void IdxInd_Stage7_RMW_SLO_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)((value8 << 1));
-			A |= value8;
-			NZ_A_F();
-		}
-
-		void IdxInd_Stage7_RMW_ISC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 + 1);
-			_Sbc_F();
-		}
-
-		void IdxInd_Stage7_RMW_DCP_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 - 1);
-			FlagCset((temp8 & 1) != 0);
-			_Cmp_F();
-		}
-
-		void IdxInd_Stage7_RMW_SRE_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			A ^= value8;
-			NZ_A_F();
-		}
-
-		void IdxInd_Stage7_RMW_RRA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			_Adc_F();
-		}
-
-		void IdxInd_Stage7_RMW_RLA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			A &= value8;
-			NZ_A_F();
-		}
 
 		void IdxInd_Stage8_RMW_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
 
@@ -1652,34 +1476,6 @@ namespace SNESHawk
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
 		}
 
-		void ZP_RMW_SRE_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			A ^= value8;
-			NZ_A_F();
-		}
-
-		void ZP_RMW_RRA_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			_Adc_F();
-		}
-
-		void ZP_RMW_DCP_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 - 1);
-			FlagCset((temp8 & 1) != 0);
-			_Cmp_F();
-		}
-
 		void ZP_RMW_LSR_F()
 		{
 			WriteMemory(opcode2, (uint8_t)alu_temp);
@@ -1705,34 +1501,6 @@ namespace SNESHawk
 			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
 			FlagCset((temp8 & 0x80) != 0);
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void ZP_RMW_SLO_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)((value8 << 1));
-			A |= value8;
-			NZ_A_F();
-		}
-
-		void ZP_RMW_ISC_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)(value8 + 1);
-			_Sbc_F();
-		}
-
-		void ZP_RMW_RLA_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			A &= value8;
-			NZ_A_F();
 		}
 
 		void AbsIdx_Stage3_Y_F()
@@ -1777,20 +1545,6 @@ namespace SNESHawk
 
 		void AbsIdx_WRITE_Stage5_STA_F() { WriteMemory((uint16_t)ea, A); }
 
-		void AbsIdx_WRITE_Stage5_SHY_F()
-		{
-			alu_temp = Y & (ea >> 8);
-			ea = (ea & 0xFF) | (alu_temp << 8); //"(the bank where the value is stored may be equal to the value stored)" -- more like IS.
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-		}
-
-		void AbsIdx_WRITE_Stage5_SHX_F()
-		{
-			alu_temp = X & (ea >> 8);
-			ea = (ea & 0xFF) | (alu_temp << 8); //"(the bank where the value is stored may be equal to the value stored)" -- more like IS.
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-		}
-
 		void AbsIdx_WRITE_Stage5_ERROR_F()
 		{
 			S = (uint8_t)(X & A);
@@ -1806,20 +1560,6 @@ namespace SNESHawk
 			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
 			alu_temp = value8 = (uint8_t)(alu_temp - 1);
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_DCP_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			alu_temp = value8 = (uint8_t)(alu_temp - 1);
-			_Cmp_F();
-		}
-
-		void AbsIdx_RMW_Stage6_ISC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			alu_temp = value8 = (uint8_t)(alu_temp + 1);
-			_Sbc_F();
 		}
 
 		void AbsIdx_RMW_Stage6_INC_F()
@@ -1847,45 +1587,6 @@ namespace SNESHawk
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
 		}
 
-		void AbsIdx_RMW_Stage6_SLO_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)(value8 << 1);
-			A |= value8;
-			NZ_A_F();
-		}
-
-		void AbsIdx_RMW_Stage6_SRE_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			A ^= value8;
-			NZ_A_F();
-		}
-
-		void AbsIdx_RMW_Stage6_RRA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			_Adc_F();
-		}
-
-		void AbsIdx_RMW_Stage6_RLA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			A &= value8;
-			NZ_A_F();
-		}
-
 		void AbsIdx_RMW_Stage6_ASL_F()
 		{
 			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
@@ -1907,8 +1608,6 @@ namespace SNESHawk
 		void AbsIdx_READ_Stage5_LDA_F() { A = ReadMemory((uint16_t)ea); NZ_A_F(); }
 
 		void AbsIdx_READ_Stage5_LDX_F() { X = ReadMemory((uint16_t)ea); NZ_X_F(); }
-
-		void AbsIdx_READ_Stage5_LAX_F() { A = ReadMemory((uint16_t)ea); X = A; NZ_A_F(); }
 
 		void AbsIdx_READ_Stage5_LDY_F() { Y = ReadMemory((uint16_t)ea); NZ_Y_F(); }
 
@@ -1962,22 +1661,6 @@ namespace SNESHawk
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
 		}
 
-		void Abs_RMW_Stage5_DCP_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)(alu_temp - 1);
-			alu_temp = value8;
-			_Cmp_F();
-		}
-
-		void Abs_RMW_Stage5_ISC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)(alu_temp + 1);
-			alu_temp = value8;
-			_Sbc_F();
-		}
-
 		void Abs_RMW_Stage5_ASL_F()
 		{
 			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
@@ -1994,45 +1677,6 @@ namespace SNESHawk
 			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
 			FlagCset((temp8 & 1) != 0);
 			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_SLO_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)(value8 << 1);
-			A |= value8;
-			NZ_A_F();
-		}
-
-		void Abs_RMW_Stage5_RLA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			A &= value8;
-			NZ_A_F();
-		}
-
-		void Abs_RMW_Stage5_SRE_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			A ^= value8;
-			NZ_A_F();
-		}
-
-		void Abs_RMW_Stage5_RRA_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			_Adc_F();
 		}
 
 		void Abs_RMW_Stage5_ROL_F()
@@ -2080,11 +1724,6 @@ namespace SNESHawk
 		}
 
 		void End_BranchSpecial_F() { End_F(); }
-
-		void Jam_F()
-		{
-			rdy_freeze = true;
-		}
 
 		#pragma endregion
 
@@ -2332,204 +1971,204 @@ namespace SNESHawk
 		{
 			"BRK",							// 0x00
 			"ORA (d8,X)",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8",
 			"ORA d8",
 			"ASL d8",
-			"???",
+			"NOP",
 			"PHP",
 			"ORA #d8",
 			"ASL A",
-			"???",
+			"NOP",
 			"NOP (d16)",
 			"ORA d16",
 			"ASL d16",
-			"???",
+			"NOP",
 			"BPL r8",						// 0x10
 			"ORA (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"ORA d8,X",
 			"ASL d8,X",
-			"???",
+			"NOP",
 			"CLC",
 			"ORA d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"ORA d16,X *",
 			"ASL d16,X",
-			"???",
+			"NOP",
 			"JSR d16",						// 0x20
 			"AND (d8,X)",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"BIT d8",
 			"AND d8",
 			"ROL d8",
-			"???",
+			"NOP",
 			"PLP",
 			"AND #d8",
 			"ROL A",
-			"???",
+			"NOP",
 			"BIT d16",
 			"AND d16",
 			"ROL d16",
-			"???",
+			"NOP",
 			"BMI r8",						// 0x30
 			"AND (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"AND d8,X",
 			"ROL d8,X",
-			"???",
+			"NOP",
 			"SEC",
 			"AND d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"AND d16,X *",
 			"ROL d16,X",
-			"???",
+			"NOP",
 			"RTI",							// 0x40
 			"EOR (d8,X)",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8",
 			"EOR d8",
 			"LSR d8",
-			"???",
+			"NOP",
 			"PHA",
 			"EOR #d8",
 			"LSR A",
-			"???",
+			"NOP",
 			"JMP d16",
 			"EOR d16",
 			"LSR d16",
-			"???",
+			"NOP",
 			"BVC r8",						// 0x50
 			"EOR (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"EOR d8,X",
 			"LSR d8,X",
-			"???",
+			"NOP",
 			"CLI",
 			"EOR d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"EOR d16,X *",
 			"LSR d16,X",
-			"???",
+			"NOP",
 			"RTS",							// 0x60
 			"ADC (d8,X)",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8",
 			"ADC d8",
 			"ROR d8",
-			"???",
+			"NOP",
 			"PLA",
 			"ADC #d8",
 			"ROR A",
-			"???",
+			"NOP",
 			"JMP (d16)",
 			"ADC d16",
 			"ROR d16",
-			"???",
+			"NOP",
 			"BVS r8",						//0x70
 			"ADC (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"ADC d8,X",
 			"ROR d8,X",
-			"???",
+			"NOP",
 			"SEI",
 			"ADC d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"ADC d16,X *",
 			"ROR d16,X",
-			"???",
+			"NOP",
 			"NOP #d8",						// 0x80
 			"STA (d8,X)",
 			"NOP #d8",
-			"???",
+			"NOP",
 			"STY d8",
 			"STA d8",
 			"STX d8",
-			"???",
+			"NOP",
 			"DEY",
 			"NOP #d8",
 			"TXA",
-			"???",
+			"NOP",
 			"STY d16",
 			"STA d16",
 			"STX d16",
-			"???",
+			"NOP",
 			"BCC r8",						// 0x90
 			"STA (d8),Y",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"STY d8,X",
 			"STA d8,X",
 			"STX d8,Y",
-			"???",
+			"NOP",
 			"TYA",
 			"STA d16,Y",
 			"TXS",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"STA d16,X",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"LDY #d8",						// 0xA0
 			"LDA (d8,X)",
 			"LDX #d8",
-			"???",
+			"NOP",
 			"LDY d8",
 			"LDA d8",
 			"LDX d8",
-			"???",
+			"NOP",
 			"TAY",
 			"LDA #d8",
 			"TAX",
-			"???",
+			"NOP",
 			"LDY d16",
 			"LDA d16",
 			"LDX d16",
-			"???",
+			"NOP",
 			"BCS r8",						// 0xB0
 			"LDA (d8),Y *",
-			"???",
+			"NOP",
 			"LAX (d8),Y *",
 			"LDY d8,X",
 			"LDA d8,X",
 			"LDX d8,Y",
-			"???",
+			"NOP",
 			"CLV",
 			"LDA d16,Y *",
 			"TSX",
-			"???",
+			"NOP",
 			"LDY d16,X *",
 			"LDA d16,X *",
 			"LDX d16,Y *",
-			"???",
+			"NOP",
 			"CPY #d8",						// 0xC0
 			"CMP (d8,X)",
 			"NOP #d8",
-			"???",
+			"NOP",
 			"CPY d8",
 			"CMP d8",
 			"DEC d8",
-			"???",
+			"NOP",
 			"INY",
 			"CMP #d8",
 			"DEX",
@@ -2537,55 +2176,55 @@ namespace SNESHawk
 			"CPY d16",
 			"CMP d16",
 			"DEC d16",
-			"???",
+			"NOP",
 			"BNE r8",						// 0xD0
 			"CMP (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"CMP d8,X",
 			"DEC d8,X",
-			"???",
+			"NOP",
 			"CLD",
 			"CMP d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"CMP d16,X *",
 			"DEC d16,X",
-			"???",
+			"NOP",
 			"CPX #d8",						// 0xE0
 			"SBC (d8,X)",
 			"NOP #d8",
-			"???",
+			"NOP",
 			"CPX d8",
 			"SBC d8",
 			"INC d8",
-			"???",
+			"NOP",
 			"INX",
 			"SBC #d8",
 			"NOP",
-			"???",
+			"NOP",
 			"CPX d16",
 			"SBC d16",
 			"INC d16",
-			"???",
+			"NOP",
 			"BEQ r8",						// 0xF0
 			"SBC (d8),Y *",
-			"???",
-			"???",
+			"NOP",
+			"NOP",
 			"NOP d8,X",
 			"SBC d8,X",
 			"INC d8,X",
-			"???",
+			"NOP",
 			"SED",
 			"SBC d16,Y *",
 			"NOP",
-			"???",
+			"NOP",
 			"NOP (d8,X)",
 			"SBC d16,X *",
 			"INC d16,X",
-			"???"
+			"NOP"
 		};
 
 		#pragma endregion
