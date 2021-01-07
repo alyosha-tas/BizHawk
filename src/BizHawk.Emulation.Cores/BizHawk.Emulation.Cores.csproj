@@ -63,6 +63,39 @@
 		<Compile Update="Consoles/Sega/gpgx64/GPGX.*.cs" DependentUpon="GPGX.cs" />
 		<Compile Update="Consoles/Sega/SMS/SMS.*.cs" DependentUpon="SMS.cs" />
 		<Compile Update="Consoles/Sony/PSX/Octoshock.cs" SubType="Code" />
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBC_GB_PPU.cs">
+		  <DependentUpon>PPU.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBC_PPU.cs">
+		  <DependentUpon>PPU.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.ICodeDataLog.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.IDebuggable.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.IEmulator.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.IInputPollable.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.IMemoryDomains.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.ISaveRam.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.ISettable.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GBHawk.IStatable.cs">
+		  <DependentUpon>GBHawk.cs</DependentUpon>
+		</Compile>
+		<Compile Update="Consoles\Nintendo\SNESHawk\GB_PPU.cs">
+		  <DependentUpon>PPU.cs</DependentUpon>
+		</Compile>
 		<Compile Update="Consoles/Sony/PSX/Octoshock.*.cs" DependentUpon="Octoshock.cs" />
 		<Compile Update="Consoles/WonderSwan/WonderSwan.*.cs" DependentUpon="WonderSwan.cs" />
 	</ItemGroup>
