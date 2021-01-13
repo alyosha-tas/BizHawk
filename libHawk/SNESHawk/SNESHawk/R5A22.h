@@ -41,6 +41,7 @@ namespace SNESHawk
 		uint8_t Y;
 		uint8_t P;
 		uint8_t S;
+		uint8_t BR;
 		uint16_t PC;
 
 		//opcode bytes.. theoretically redundant with the temp variables? who knows.
@@ -53,7 +54,7 @@ namespace SNESHawk
 		//not sure if this is real or not but it helps with the branch_irq_hack
 		bool interrupt_pending;
 		bool branch_irq_hack; //see Uop.RelBranch_Stage3 for more details		
-		uint8_t opcode2, opcode3;
+		uint8_t opcode2, opcode3, opcode4;
 		int32_t opcode;
 		int32_t ea, alu_temp; //cpu internal temp variables
 		int32_t mi; //microcode index
@@ -67,12 +68,13 @@ namespace SNESHawk
 		const uint16_t NMIVector = 0xFFFA;
 		const uint16_t ResetVector = 0xFFFC;
 		const uint16_t BRKVector = 0xFFFE;
+		const uint16_t COPVector = 0xFFFE;
 		const uint16_t IRQVector = 0xFFFE;
 		
 		// operations that can take place in an instruction
 		enum Uop
 		{
-			Fetch1, Fetch1_Real, Fetch2, Fetch3,
+			Fetch1, Fetch1_Real, Fetch2, Fetch3, Fetch4,
 			//used by instructions with no second opcode byte (6502 fetches a byte anyway but won't increment PC for these)
 			FetchDummy,
 
@@ -90,7 +92,10 @@ namespace SNESHawk
 			Abs_RMW_Stage5_INC, Abs_RMW_Stage5_DEC, Abs_RMW_Stage5_LSR, Abs_RMW_Stage5_ROL, Abs_RMW_Stage5_ASL, Abs_RMW_Stage5_ROR,
 
 			//[absolute JUMP]
-			JMP_abs,
+			JMP_abs, JSL,
+
+			//[long absolute BR]
+			BRL, 
 
 			//[zero page misc]
 			ZpIdx_Stage3_X, ZpIdx_Stage3_Y,
@@ -126,8 +131,8 @@ namespace SNESHawk
 			AbsIdx_RMW_Stage6_ROR, AbsIdx_RMW_Stage6_DEC, AbsIdx_RMW_Stage6_INC, AbsIdx_RMW_Stage6_ASL, AbsIdx_RMW_Stage6_LSR, AbsIdx_RMW_Stage6_ROL,
 
 			IncS, DecS,
-			PushPCL, PushPCH, PushP, PullP, PullPCL, PullPCH_NoInc, PushA, PullA_NoInc, PullP_NoInc,
-			PushP_BRK, PushP_NMI, PushP_IRQ, PushP_Reset, PushDummy,
+			PushPCL, PushPCH, PushBR, PushPERH, PushPERL, PushP, PullP, PullPCL, PullPCH_NoInc, PushA, PullA_NoInc, PullP_NoInc,
+			PushP_BRK, PushP_COP, PushP_NMI, PushP_IRQ, PushP_Reset, PushDummy,
 			FetchPCLVector, FetchPCHVector, //todo - may not need these ?? can reuse fetch2 and fetch3?
 
 			//[implied] and [accumulator]
@@ -160,6 +165,8 @@ namespace SNESHawk
 
 			Ind_zp_Stage4,
 
+			REP, SEP,
+
 			End,
 			End_ISpecial, //same as end, but preserves the iflag set by the instruction
 			End_BranchSpecial,
@@ -183,7 +190,7 @@ namespace SNESHawk
 			//0x00
 			Fetch2,					PushPCH,			PushPCL,				PushP_BRK,					FetchPCLVector,				FetchPCHVector,				End_SuppressInterrupt,		NOP,		NOP,		NOP,		NOP,		NOP,	/*BRK [implied]*/ 
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ORA,		End ,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (addr,X) [indexed indirect READ]*/ 
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					PushPCH,			PushPCL,				PushP_COP,					FetchPCLVector,				FetchPCHVector,				End_SuppressInterrupt,		NOP,		NOP,		NOP,		NOP,		NOP,	/*COP [implied]*/
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ORA,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA zp [zero page READ]*/ 
@@ -217,7 +224,7 @@ namespace SNESHawk
 			//0x20
 			Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JSR*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (addr,X) [indexed indirect READ]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					Fetch3,				PushBR,					NOP,						Fetch4,						PushPCH,					PushPCL,					JSL,		NOP,		NOP,		NOP,		NOP,	/*JSL [Absolute Long]*/
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_BIT,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BIT zp [zero page READ]*/
 			Fetch2,					ZP_READ_AND,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND zp [zero page READ]*/
@@ -251,7 +258,7 @@ namespace SNESHawk
 			//0x40,
 			FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTI*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (addr,X) [indexed indirect READ]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*WDM (NOP) [immediate]*/ 
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_EOR,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR zp [zero page READ]*/
@@ -285,7 +292,7 @@ namespace SNESHawk
 			//0x60,
 			FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTS*/	//can't fetch here because the PC isnt ready until the end of the last clock
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr,X) [indexed indirect READ]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					Fetch3,				NOP,					Push_PERH,					Push_PERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PER [immediate]*/
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp [zero page READ]*/
@@ -319,7 +326,7 @@ namespace SNESHawk
 			//0x80,
 			RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BRA +/-rel [relative]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_WRITE_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (addr,X) [indexed indirect WRITE]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_WRITE_STY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY zp [zero page WRITE]*/
 			Fetch2,					ZP_WRITE_STA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA zp [zero page WRITE]*/
@@ -387,7 +394,7 @@ namespace SNESHawk
 			//0xC0,
 			Imm_CPY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (addr,X) [indexed indirect READ]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*REP [immediate]*/ 
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY zp [zero page READ]*/
 			Fetch2,					ZP_READ_CMP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP zp [zero page READ]*/
@@ -421,7 +428,7 @@ namespace SNESHawk
 			//0xE0,
 			Imm_CPX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (addr,X) [indirect indexed]*/
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
+			Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SEP [immediate]*/ 
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX zp [zero page READ]*/
 			Fetch2,					ZP_READ_SBC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC zp [zero page READ]*/
@@ -569,10 +576,15 @@ namespace SNESHawk
 			case Fetch1_Real: Fetch1_Real_F(); break;
 			case Fetch2: Fetch2_F(); break;
 			case Fetch3: Fetch3_F(); break;
+			case Fetch4: Fetch4_F(); break;
 			case FetchDummy: FetchDummy_F(); break;
 			case PushPCH: PushPCH_F(); break;
 			case PushPCL: PushPCL_F(); break;
+			case PushBR: PushBR_F(); break;
+			case PushPERH: PushPERH_F(); break;
+			case PushPERL: PushPERL_F(); break;
 			case PushP_BRK: PushP_BRK_F(); break;
+			case PushP_COP: PushP_COP_F(); break;
 			case PushP_IRQ: PushP_IRQ_F(); break;
 			case PushP_NMI: PushP_NMI_F(); break;
 			case PushP_Reset: PushP_Reset_F(); break;
@@ -725,6 +737,8 @@ namespace SNESHawk
 			case Imp_ROR_A: Imp_ROR_A_F(); break;
 			case Imp_LSR_A: Imp_LSR_A_F(); break;
 			case JMP_abs: JMP_abs_F(); break;
+			case JSL: JSL_F(); break;
+			case BRL: BRL_F(); break;
 			case IncPC: IncPC_F(); break;
 			case ZP_RMW_Stage3: ZP_RMW_Stage3_F(); break;
 			case ZP_RMW_Stage5: ZP_RMW_Stage5_F(); break;
@@ -769,6 +783,8 @@ namespace SNESHawk
 			case Abs_RMW_Stage5_ROL: Abs_RMW_Stage5_ROL_F(); break;
 			case Abs_RMW_Stage5_LSR: Abs_RMW_Stage5_LSR_F(); break;
 			case Abs_RMW_Stage6: Abs_RMW_Stage6_F(); break;
+			case REP: REP_F; break;
+			case SEP: SEP_F; break;
 			case End_ISpecial: End_ISpecial_F(); break;
 			case End_SuppressInterrupt: End_SuppressInterrupt_F(); break;
 			case End: End_F(); break;
@@ -836,9 +852,24 @@ namespace SNESHawk
 
 		void Fetch3_F() { opcode3 = ReadMemory(PC++); }
 
+		void Fetch4_F() { opcode4 = ReadMemory(PC++); }
+
 		void PushPCH_F() { WriteMemory((uint16_t)(S-- + 0x100), (uint8_t)(PC >> 8)); }
 
 		void PushPCL_F() { WriteMemory((uint16_t)(S-- + 0x100), (uint8_t)PC); }
+
+		void PushBR_F() { WriteMemory((uint16_t)(S-- + 0x100), BR); }
+
+		void PushPERH_F() 
+		{ 
+			alu_temp = (uint8_t)((PC >> 8) + opcode2 + (FlagCget() ? 1 : 0));
+			WriteMemory((uint16_t)(S-- + 0x100), alu_temp); 
+		}
+
+		void PushPERL_F() 
+		{
+			WriteMemory((uint16_t)(S-- + 0x100), (uint8_t)(PC + opcode3)); 
+		}
 
 		void PushP_BRK_F()
 		{
@@ -846,6 +877,14 @@ namespace SNESHawk
 			WriteMemory((uint16_t)(S-- + 0x100), P);
 			FlagIset(true);
 			ea = BRKVector;
+		}
+
+		void PushP_COP_F()
+		{
+			FlagBset(true);
+			WriteMemory((uint16_t)(S-- + 0x100), P);
+			FlagIset(true);
+			ea = COPVector;
 		}
 
 		void PushP_IRQ_F()
@@ -1447,6 +1486,8 @@ namespace SNESHawk
 
 		void JMP_abs_F() { PC = (uint16_t)((ReadMemory(PC) << 8) + opcode2); }
 
+		void BRL_F() { PC = (uint16_t)((opcode3 << 8) + opcode2); }
+
 		void IncPC_F() { ReadMemory(PC); PC++; }
 
 		void ZP_RMW_Stage3_F() { alu_temp = ReadMemory(opcode2); }
@@ -1699,6 +1740,9 @@ namespace SNESHawk
 
 		void Abs_RMW_Stage6_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
 
+		void REP_F() { P ^= opcode2; }
+		void SEP_F() { P ^= opcode2; }
+
 		void End_ISpecial_F()
 		{
 			opcode = VOP_Fetch1;
@@ -1724,6 +1768,16 @@ namespace SNESHawk
 		}
 
 		void End_BranchSpecial_F() { End_F(); }
+
+		void JSL_F()
+		{
+			
+			PC = (uint16_t)((opcode2 << 8) | opcode3);
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
 
 		#pragma endregion
 
@@ -2252,8 +2306,10 @@ namespace SNESHawk
 			saver = byte_saver(Y, saver);
 			saver = byte_saver(P, saver);
 			saver = byte_saver(S, saver);
+			saver = byte_saver(BR, saver);
 			saver = byte_saver(opcode2, saver);
 			saver = byte_saver(opcode3, saver);
+			saver = byte_saver(opcode4, saver);
 
 			saver = short_saver(PC, saver);
 			saver = short_saver(value16, saver);
@@ -2296,8 +2352,10 @@ namespace SNESHawk
 			loader = byte_loader(&Y, loader);
 			loader = byte_loader(&P, loader);
 			loader = byte_loader(&S, loader);
+			loader = byte_loader(&BR, loader);
 			loader = byte_loader(&opcode2, loader);
 			loader = byte_loader(&opcode3, loader);
+			loader = byte_loader(&opcode4, loader);
 
 			loader = short_loader(&PC, loader);
 			loader = short_loader(&value16, loader);
