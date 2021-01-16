@@ -23,109 +23,6 @@ namespace SNESHawk
 
 		};
 
-		const float rtmul[7] = { 1.239f, 0.794f, 1.019f, 0.905f, 1.023f, 0.741f, 0.75f };
-		const float gtmul[7] = { 0.915f, 1.086f, 0.98f, 1.026f, 0.908f, 0.987f, 0.75f };
-		const float btmul[7] = { 0.743f, 0.882f, 0.653f, 1.277f, 0.979f, 0.101f, 0.75f };
-
-		int palette_table[64 * 8];
-
-		void compile_palette()
-		{
-			//expand using deemph
-			for (int i = 0; i < 64 * 8; i++)
-			{
-				int d = i >> 6;
-				int c = i & 63;
-				int r = FCEUX_Standard[c][0];
-				int g = FCEUX_Standard[c][1];
-				int b = FCEUX_Standard[c][2];
-
-				if (d == 0)
-				{
-				}
-				else
-				{
-					d = d - 1;
-					r = (int)(r * rtmul[d]);
-					g = (int)(g * gtmul[d]);
-					b = (int)(b * btmul[d]);
-					if (r > 0xFF) { r = 0xFF; }
-					if (g > 0xFF) { g = 0xFF; }
-					if (b > 0xFF) { b = 0xFF; }
-				}
-				palette_table[i] = (int)((int)0xFF000000 | (r << 16) | (g << 8) | b);
-			}
-		}
-
-		const int SHIFT = 2;
-		const uint8_t FCEUX_Standard[64][3] =
-		{
-			{ (uint8_t)(0x1D << SHIFT),  (uint8_t)(0x1D << SHIFT),  (uint8_t)(0x1D << SHIFT) }, /* Value 0 */
-			{ (uint8_t)(0x09 << SHIFT),  (uint8_t)(0x06 << SHIFT),  (uint8_t)(0x23 << SHIFT) }, /* Value 1 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x2A << SHIFT) }, /* Value 2 */
-			{ (uint8_t)(0x11 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x27 << SHIFT) }, /* Value 3 */
-			{ (uint8_t)(0x23 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x1D << SHIFT) }, /* Value 4 */
-			{ (uint8_t)(0x2A << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x04 << SHIFT) }, /* Value 5 */
-			{ (uint8_t)(0x29 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 6 */
-			{ (uint8_t)(0x1F << SHIFT),  (uint8_t)(0x02 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 7 */
-			{ (uint8_t)(0x10 << SHIFT),  (uint8_t)(0x0B << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 8 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x11 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 9 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x14 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 10 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x0F << SHIFT),  (uint8_t)(0x05 << SHIFT) }, /* Value 11 */
-			{ (uint8_t)(0x06 << SHIFT),  (uint8_t)(0x0F << SHIFT),  (uint8_t)(0x17 << SHIFT) }, /* Value 12 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 13 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 14 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 15 */
-			{ (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x2F << SHIFT) }, /* Value 16 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x1C << SHIFT),  (uint8_t)(0x3B << SHIFT) }, /* Value 17 */
-			{ (uint8_t)(0x08 << SHIFT),  (uint8_t)(0x0E << SHIFT),  (uint8_t)(0x3B << SHIFT) }, /* Value 18 */
-			{ (uint8_t)(0x20 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x3C << SHIFT) }, /* Value 19 */
-			{ (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x2F << SHIFT) }, /* Value 20 */
-			{ (uint8_t)(0x39 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x16 << SHIFT) }, /* Value 21 */
-			{ (uint8_t)(0x36 << SHIFT),  (uint8_t)(0x0A << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 22 */
-			{ (uint8_t)(0x32 << SHIFT),  (uint8_t)(0x13 << SHIFT),  (uint8_t)(0x03 << SHIFT) }, /* Value 23 */
-			{ (uint8_t)(0x22 << SHIFT),  (uint8_t)(0x1C << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 24 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x25 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 25 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x2A << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 26 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x24 << SHIFT),  (uint8_t)(0x0E << SHIFT) }, /* Value 27 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x20 << SHIFT),  (uint8_t)(0x22 << SHIFT) }, /* Value 28 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 29 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 30 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 31 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 32 */
-			{ (uint8_t)(0x0F << SHIFT),  (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 33 */
-			{ (uint8_t)(0x17 << SHIFT),  (uint8_t)(0x25 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 34 */
-			{ (uint8_t)(0x10 << SHIFT),  (uint8_t)(0x22 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 35 */
-			{ (uint8_t)(0x3D << SHIFT),  (uint8_t)(0x1E << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 36 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x1D << SHIFT),  (uint8_t)(0x2D << SHIFT) }, /* Value 37 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x1D << SHIFT),  (uint8_t)(0x18 << SHIFT) }, /* Value 38 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x26 << SHIFT),  (uint8_t)(0x0E << SHIFT) }, /* Value 39 */
-			{ (uint8_t)(0x3C << SHIFT),  (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x0F << SHIFT) }, /* Value 40 */
-			{ (uint8_t)(0x20 << SHIFT),  (uint8_t)(0x34 << SHIFT),  (uint8_t)(0x04 << SHIFT) }, /* Value 41 */
-			{ (uint8_t)(0x13 << SHIFT),  (uint8_t)(0x37 << SHIFT),  (uint8_t)(0x12 << SHIFT) }, /* Value 42 */
-			{ (uint8_t)(0x16 << SHIFT),  (uint8_t)(0x3E << SHIFT),  (uint8_t)(0x26 << SHIFT) }, /* Value 43 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x3A << SHIFT),  (uint8_t)(0x36 << SHIFT) }, /* Value 44 */
-			{ (uint8_t)(0x1E << SHIFT),  (uint8_t)(0x1E << SHIFT),  (uint8_t)(0x1E << SHIFT) }, /* Value 45 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 46 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 47 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 48 */
-			{ (uint8_t)(0x2A << SHIFT),  (uint8_t)(0x39 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 49 */
-			{ (uint8_t)(0x31 << SHIFT),  (uint8_t)(0x35 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 50 */
-			{ (uint8_t)(0x35 << SHIFT),  (uint8_t)(0x32 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 51 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x31 << SHIFT),  (uint8_t)(0x3F << SHIFT) }, /* Value 52 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x31 << SHIFT),  (uint8_t)(0x36 << SHIFT) }, /* Value 53 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x2F << SHIFT),  (uint8_t)(0x2C << SHIFT) }, /* Value 54 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x36 << SHIFT),  (uint8_t)(0x2A << SHIFT) }, /* Value 55 */
-			{ (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x39 << SHIFT),  (uint8_t)(0x28 << SHIFT) }, /* Value 56 */
-			{ (uint8_t)(0x38 << SHIFT),  (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x28 << SHIFT) }, /* Value 57 */
-			{ (uint8_t)(0x2A << SHIFT),  (uint8_t)(0x3C << SHIFT),  (uint8_t)(0x2F << SHIFT) }, /* Value 58 */
-			{ (uint8_t)(0x2C << SHIFT),  (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x33 << SHIFT) }, /* Value 59 */
-			{ (uint8_t)(0x27 << SHIFT),  (uint8_t)(0x3F << SHIFT),  (uint8_t)(0x3C << SHIFT) }, /* Value 60 */
-			{ (uint8_t)(0x31 << SHIFT),  (uint8_t)(0x31 << SHIFT),  (uint8_t)(0x31 << SHIFT) }, /* Value 61 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 62 */
-			{ (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT),  (uint8_t)(0x00 << SHIFT) }, /* Value 63 */
-		};
-
 		uint8_t ReadMemory(uint32_t);
 		void WriteMemory(uint32_t, uint8_t);
 		uint8_t Read_Registers(uint32_t);
@@ -138,7 +35,6 @@ namespace SNESHawk
 		void AddressPPU(uint32_t);
 		void RunCpuOne();
 		void ClockPPU();
-		void AtVsyncNMI();
 
 		uint32_t num_samples_L, num_samples_R;
 		int32_t samples_L[25000] = {};
@@ -195,7 +91,7 @@ namespace SNESHawk
 
 		uint32_t Frame;
 
-		uint8_t RAM[0x800] = {};
+		uint8_t RAM[0x20000] = {};
 		uint32_t frame_buffer[256 * 240] = {};
 
 		#pragma endregion
@@ -216,8 +112,6 @@ namespace SNESHawk
 
 			ROM_Length = ext_prg_rom_size_1;
 		}
-
-		void Load_CHR_ROM(uint8_t*, uint32_t);
 
 		void Register_Reset()
 		{
@@ -263,7 +157,7 @@ namespace SNESHawk
 
 			saver = int_saver(Frame, saver);
 
-			saver = byte_array_saver(RAM, saver, 0x800);
+			saver = byte_array_saver(RAM, saver, 0x20000);
 
 			if (Cart_RAM_Length != 0) 
 			{
@@ -308,7 +202,7 @@ namespace SNESHawk
 
 			loader = int_loader(&Frame, loader);
 
-			loader = byte_array_loader(RAM, loader, 0x800);
+			loader = byte_array_loader(RAM, loader, 0x20000);
 
 			if (Cart_RAM_Length != 0)
 			{

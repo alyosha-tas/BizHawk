@@ -17,7 +17,6 @@ namespace SNESHawk
 		SNESCore() 
 		{
 			mapper = nullptr;
-			MemMap.compile_palette();
 		};
 
 		PPU ppu;
@@ -31,14 +30,12 @@ namespace SNESHawk
 			MemMap.Load_BIOS(bios);
 		}
 
-		void Load_ROM(uint8_t* ext_prg_rom_1, uint32_t ext_prg_rom_size_1, uint8_t* ext_chr_rom_1, uint32_t ext_chr_rom_size_1, string MD5, bool is_PAL)
+		void Load_ROM(uint8_t* ext_prg_rom_1, uint32_t ext_prg_rom_size_1, string MD5, bool is_PAL)
 		{
 			MemMap.ppu_pntr = &ppu;
-			ppu.setPAL(is_PAL);
 			ppu.mem_ctrl = &MemMap;
 			
 			MemMap.Load_PRG_ROM(ext_prg_rom_1, ext_prg_rom_size_1);
-			MemMap.Load_CHR_ROM(ext_chr_rom_1, ext_chr_rom_size_1);
 
 			// initialize the proper mapper
 			Setup_Mapper(MD5);
@@ -87,7 +84,7 @@ namespace SNESHawk
 				mapper->Reset();
 				cpu.Reset();
 				apu.NESSoftReset();
-				ppu.NESSoftReset();
+				ppu.SNESSoftReset();
 			}
 			else if (hard_reset)
 			{
@@ -96,32 +93,22 @@ namespace SNESHawk
 
 			MemMap.Frame++;
 
-			if (ppu.ppudead > 0)
+			// do the vbl ticks seperate, that will save us a few checks that don't happen in active region
+			while (ppu.do_vbl)
 			{
-				while (ppu.ppudead > 0)
-				{
-					ppu.NewDeadPPU();
-				}
+				ppu.TickPPU_VBL();
 			}
-			else
+
+			// now do the rest of the frame
+			while (ppu.do_active_sl)
 			{
-				// do the vbl ticks seperate, that will save us a few checks that don't happen in active region
-				while (ppu.do_vbl)
-				{
-					ppu.TickPPU_VBL();
-				}
+				ppu.TickPPU_active();
+			}
 
-				// now do the rest of the frame
-				while (ppu.do_active_sl)
-				{
-					ppu.TickPPU_active();
-				}
-
-				// now do the pre-NMI lines
-				while (ppu.do_pre_vbl)
-				{
-					ppu.TickPPU_preVBL();
-				}
+			// now do the pre-NMI lines
+			while (ppu.do_pre_vbl)
+			{
+				ppu.TickPPU_preVBL();
 			}
 
 			MemMap.SendVideoBuffer();
@@ -202,9 +189,9 @@ namespace SNESHawk
 			return MemMap.RAM[addr & 0x7FF];
 		}
 
-		uint8_t GetCIRAM(uint32_t addr)
+		uint8_t GetVRAM(uint32_t addr)
 		{
-			return MemMap.ppu_pntr->CIRAM[addr & 0x7FF];
+			return MemMap.ppu_pntr->VRAM[addr & 0xFFFF];
 		}
 
 		uint8_t GetOAM(uint32_t addr)
@@ -222,9 +209,9 @@ namespace SNESHawk
 			MemMap.RAM[addr & 0x7FF] = value;
 		}
 
-		void SetCIRAM(uint32_t addr, uint8_t value)
+		void SetVRAM(uint32_t addr, uint8_t value)
 		{
-			MemMap.ppu_pntr->CIRAM[addr & 0x7FF] = value;
+			MemMap.ppu_pntr->VRAM[addr & 0xFFFF] = value;
 		}
 
 		void SetOAM(uint32_t addr, uint8_t value)

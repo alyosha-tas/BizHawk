@@ -11,12 +11,7 @@ namespace SNESHawk
 {
 	uint8_t PPU::ReadPPU(uint32_t addr)
 	{
-		if (addr < 0x2000)
-		{
-			return CHR[addr];
-		}
-		
-		return CIRAM[ApplyMirroring(addr)];
+		return 0;
 	}
 
 	uint8_t PPU::PeekPPU(uint32_t addr)
@@ -31,11 +26,7 @@ namespace SNESHawk
 
 	void PPU::WritePPU(uint32_t addr, uint8_t value)
 	{
-		
-		if (addr >= 0x2000) 
-		{
-			CIRAM[ApplyMirroring(addr)] = value;
-		}
+
 	}
 
 	void PPU::RunCpuOne()

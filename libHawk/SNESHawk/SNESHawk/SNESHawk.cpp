@@ -23,7 +23,6 @@ SNESHawk_EXPORT void SNES_destroy(SNESCore* p)
 {
 	delete p->MemMap.bios_rom;
 	delete p->MemMap.ROM;
-	delete p->MemMap.ppu_pntr->CHR;
 	std::free(p);
 }
 
@@ -34,11 +33,11 @@ SNESHawk_EXPORT void SNES_load_bios(SNESCore* p, uint8_t* bios)
 }
 
 // load a rom into the core
-SNESHawk_EXPORT void SNES_load(SNESCore* p, uint8_t* prg_1, uint32_t prg_size_1, uint8_t* chr_1, uint32_t chr_size_1, char* MD5, bool is_PAL)
+SNESHawk_EXPORT void SNES_load(SNESCore* p, uint8_t* prg_1, uint32_t prg_size_1, char* MD5, bool is_PAL)
 {
 	string MD5_s(MD5, 32);
 	
-	p->Load_ROM(prg_1, prg_size_1, chr_1, chr_size_1, MD5_s, is_PAL);
+	p->Load_ROM(prg_1, prg_size_1, MD5_s, is_PAL);
 }
 
 // Hard reset (note: does not change RTC, that only happens on load)
@@ -95,7 +94,7 @@ SNESHawk_EXPORT uint8_t SNES_getram(SNESCore* p, uint32_t addr) {
 }
 
 SNESHawk_EXPORT uint8_t SNES_getvram(SNESCore* p, uint32_t addr) {
-	return p->GetCIRAM(addr);
+	return p->GetVRAM(addr);
 }
 
 SNESHawk_EXPORT uint8_t SNES_getoam(SNESCore* p, uint32_t addr) {
@@ -111,7 +110,7 @@ SNESHawk_EXPORT void SNES_setram(SNESCore* p, uint32_t addr, uint8_t value) {
 }
 
 SNESHawk_EXPORT void SNES_setvram(SNESCore* p, uint32_t addr, uint8_t value) {
-	 p->SetCIRAM(addr, value);
+	 p->SetVRAM(addr, value);
 }
 
 SNESHawk_EXPORT void SNES_setoam(SNESCore* p, uint32_t addr, uint8_t value) {

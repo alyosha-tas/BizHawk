@@ -158,7 +158,7 @@ namespace SNESHawk
 			IndIdx_Stage3, IndIdx_Stage4, IndIdx_READ_Stage5, IndIdx_WRITE_Stage5,
 			IndIdx_WRITE_Stage6_STA, IndIdx_WRITE_Stage6_SHA,
 			IndIdx_READ_Stage6_LDA, IndIdx_READ_Stage6_CMP, IndIdx_READ_Stage6_ORA, IndIdx_READ_Stage6_SBC, IndIdx_READ_Stage6_ADC, IndIdx_READ_Stage6_AND, IndIdx_READ_Stage6_EOR,
-			IndIdx_READ_Stage6_LAX,
+			IndIdx_READ_Stage6_LAX, IndIdx_READ_Stage6_STA,
 			IndIdx_RMW_Stage5,
 			IndIdx_RMW_Stage6, //just reads from effective address
 			IndIdx_RMW_Stage8,
@@ -292,7 +292,7 @@ namespace SNESHawk
 			//0x60,
 			FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTS*/	//can't fetch here because the PC isnt ready until the end of the last clock
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr,X) [indexed indirect READ]*/
-			Fetch2,					Fetch3,				NOP,					Push_PERH,					Push_PERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PER [immediate]*/
+			Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PER [immediate]*/
 			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp [zero page READ]*/
@@ -783,8 +783,8 @@ namespace SNESHawk
 			case Abs_RMW_Stage5_ROL: Abs_RMW_Stage5_ROL_F(); break;
 			case Abs_RMW_Stage5_LSR: Abs_RMW_Stage5_LSR_F(); break;
 			case Abs_RMW_Stage6: Abs_RMW_Stage6_F(); break;
-			case REP: REP_F; break;
-			case SEP: SEP_F; break;
+			case REP: REP_F(); break;
+			case SEP: SEP_F(); break;
 			case End_ISpecial: End_ISpecial_F(); break;
 			case End_SuppressInterrupt: End_SuppressInterrupt_F(); break;
 			case End: End_F(); break;
