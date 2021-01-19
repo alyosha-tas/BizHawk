@@ -21,10 +21,9 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		private int _frame = 0;
 		public int _lagCount = 0;
 		public bool is_PAL = false;
+		public int ROM_Length;
 
 		public byte[] _bios;
-		public byte[] _rom;
-		public byte[] _chr;
 
 		[CoreConstructor("SNES")]
 		public SNESHawk(CoreComm comm, GameInfo game, byte[] rom, /*string gameDbFn,*/ SNESSettings settings, SNESSyncSettings syncSettings)
@@ -35,44 +34,17 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 			_syncSettings = (SNESSyncSettings)syncSettings ?? new SNESSyncSettings();
 			_controllerDeck = new SNESHawkControllerDeck(_syncSettings.Port1, _syncSettings.Port2);
 
-			// for FDS games
+			// for SPC700
 			byte[] Bios = null;
 
-			_rom = new byte[16 * 1024 * 2];
-			_chr = new byte[8 * 1024];
-
-			if (rom.Length < 0x8000)
-			{
-				for (int i = 0; i < 16 * 1024; i++)
-				{
-					_rom[i] = rom[i + 16];
-					_rom[16 * 1024 + i] = rom[i + 16];
-				}
-
-				for (int i = 0; i < 8 * 1024; i++)
-				{
-					_chr[i] = rom[i + 16 + 16 * 1024];
-				}
-			}
-			else
-			{
-				for (int i = 0; i < 32 * 1024; i++)
-				{
-					_rom[i] = rom[i + 16];
-				}
-
-				for (int i = 0; i < 8 * 1024; i++)
-				{
-					_chr[i] = rom[i + 16 + 32 * 1024];
-				}
-			}
+			ROM_Length = rom.Length;
 
 			SNES_Pntr = LibSNESHawk.SNES_create();
 
 			char[] MD5_temp = rom.HashMD5(0, rom.Length).ToCharArray();
 
 			//LibSNESHawk.SNES_load_bios(SNES_Pntr, _bios);
-			LibSNESHawk.SNES_load(SNES_Pntr, _rom, (uint)_rom.Length, _chr, (uint)_chr.Length, MD5_temp, is_PAL);
+			LibSNESHawk.SNES_load(SNES_Pntr, rom, (uint)rom.Length, MD5_temp, is_PAL);
 
 			blip_L.SetRates(4194304, 44100);
 			blip_R.SetRates(4194304, 44100);

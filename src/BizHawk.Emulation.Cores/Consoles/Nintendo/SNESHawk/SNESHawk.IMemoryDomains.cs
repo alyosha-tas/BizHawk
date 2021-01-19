@@ -20,10 +20,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 					1),
 				new MemoryDomainDelegate(
 					"ROM",
-					_rom.Length,
+					ROM_Length,
 					MemoryDomain.Endian.Little,
-					addr => _rom[addr],
-					(addr, value) => _rom[addr] = value,
+					addr => LibSNESHawk.SNES_getrom(SNES_Pntr, (int)(addr & (ROM_Length - 1))),
+					(addr, value) => LibSNESHawk.SNES_setrom(SNES_Pntr, (int)(addr & (ROM_Length - 1)), value),
 					1),
 				new MemoryDomainDelegate(
 					"VRAM",

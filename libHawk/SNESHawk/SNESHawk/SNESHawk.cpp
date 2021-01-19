@@ -23,6 +23,7 @@ SNESHawk_EXPORT void SNES_destroy(SNESCore* p)
 {
 	delete p->MemMap.bios_rom;
 	delete p->MemMap.ROM;
+	delete p->MemMap.mapped_ROM;
 	std::free(p);
 }
 
@@ -33,11 +34,11 @@ SNESHawk_EXPORT void SNES_load_bios(SNESCore* p, uint8_t* bios)
 }
 
 // load a rom into the core
-SNESHawk_EXPORT void SNES_load(SNESCore* p, uint8_t* prg_1, uint32_t prg_size_1, char* MD5, bool is_PAL)
+SNESHawk_EXPORT void SNES_load(SNESCore* p, uint8_t* ext_rom, uint32_t ext_rom_size, char* MD5, bool is_PAL)
 {
 	string MD5_s(MD5, 32);
 	
-	p->Load_ROM(prg_1, prg_size_1, MD5_s, is_PAL);
+	p->Load_ROM(ext_rom, ext_rom_size, MD5_s, is_PAL);
 }
 
 // Hard reset (note: does not change RTC, that only happens on load)
@@ -89,6 +90,10 @@ SNESHawk_EXPORT void SNES_load_state(SNESCore* p, uint8_t* loader)
 
 #pragma region Memory Domain Functions
 
+SNESHawk_EXPORT uint8_t SNES_getrom(SNESCore* p, uint32_t addr) {
+	return p->GetROM(addr);
+}
+
 SNESHawk_EXPORT uint8_t SNES_getram(SNESCore* p, uint32_t addr) {
 	return p->GetRAM(addr);
 }
@@ -103,6 +108,10 @@ SNESHawk_EXPORT uint8_t SNES_getoam(SNESCore* p, uint32_t addr) {
 
 SNESHawk_EXPORT uint8_t SNES_getsysbus(SNESCore* p, uint32_t addr) {
 	return p->GetSysBus(addr);
+}
+
+SNESHawk_EXPORT void SNES_setrom(SNESCore* p, uint32_t addr, uint8_t value) {
+	p->SetROM(addr, value);
 }
 
 SNESHawk_EXPORT void SNES_setram(SNESCore* p, uint32_t addr, uint8_t value) {

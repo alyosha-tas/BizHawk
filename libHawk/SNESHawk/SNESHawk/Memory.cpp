@@ -19,22 +19,104 @@ namespace SNESHawk
 
 		if (addr < 0x400000) 
 		{
-
+			if ((addr & 0x8000) == 0)
+			{
+				// system region
+				addr &= 0x7FFF;
+				if (addr < 0x2000)
+				{
+					return RAM[addr & 0x1FFF];
+				}
+				else if (addr < 0x2100)
+				{
+					return 0xFF;
+				}
+				else if (addr < 0x2200)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else if (addr < 0x4000)
+				{
+					return 0xFF;
+				}
+				else if (addr < 0x4200)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else if (addr < 0x6000)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else
+				{
+					// Expansion
+					return 0;
+				}
+			}
+			else 
+			{
+				mapped_ROM[addr];
+			}
 		}
 		else if (addr < 0x800000) 
 		{
-			if (addr >= 0x7E0000) 
+			if (addr >= 0x7E0000)
 			{
 				ret = RAM[addr - 0x7E0000];
 			}
+
+			else return mapped_ROM[addr];
 		}
 		else if (addr < 0xC00000)
 		{
-
+			if ((addr & 0x8000) == 0) 
+			{
+				// system region
+				addr &= 0x7FFF;
+				if (addr < 0x2000) 
+				{
+					return RAM[addr & 0x1FFF];
+				}
+				else if (addr < 0x2100) 
+				{
+					return 0xFF;
+				}
+				else if (addr < 0x2200)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else if (addr < 0x4000)
+				{
+					return 0xFF;
+				}
+				else if (addr < 0x4200)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else if (addr < 0x6000)
+				{
+					// I/O Ports
+					return 0;
+				}
+				else 
+				{
+					// Expansion
+					return 0;
+				}
+			}
+			else 
+			{
+				mapped_ROM[addr];
+			}		
 		}
 		else
 		{
-
+			mapped_ROM[addr];
 		}
 
 		DB = ret;
@@ -45,7 +127,47 @@ namespace SNESHawk
 	{
 		if (addr < 0x400000)
 		{
+			if ((addr & 0x8000) == 0)
+			{
+				// system region
+				addr &= 0x7FFF;
+				if (addr < 0x2000)
+				{
+					RAM[addr & 0x1FFF] = value;
+				}
+				else if (addr < 0x2100)
+				{
 
+				}
+				else if (addr < 0x2200)
+				{
+					// I/O Ports
+
+				}
+				else if (addr < 0x4000)
+				{
+
+				}
+				else if (addr < 0x4200)
+				{
+					// I/O Ports
+
+				}
+				else if (addr < 0x6000)
+				{
+					// I/O Ports
+
+				}
+				else
+				{
+					// Expansion
+
+				}
+			}
+			else
+			{
+
+			}
 		}
 		else if (addr < 0x800000)
 		{
@@ -53,15 +175,61 @@ namespace SNESHawk
 			{
 				RAM[addr - 0x7E0000] = value;
 			}
+			else 
+			{
+
+			}
 		}
 		else if (addr < 0xC00000)
 		{
+			if ((addr & 0x8000) == 0)
+			{
+				// system region
+				addr &= 0x7FFF;
+				if (addr < 0x2000)
+				{
+					RAM[addr & 0x1FFF] = value;
+				}
+				else if (addr < 0x2100)
+				{
 
+				}
+				else if (addr < 0x2200)
+				{
+					// I/O Ports
+
+				}
+				else if (addr < 0x4000)
+				{
+
+				}
+				else if (addr < 0x4200)
+				{
+					// I/O Ports
+
+				}
+				else if (addr < 0x6000)
+				{
+					// I/O Ports
+
+				}
+				else
+				{
+					// Expansion
+
+				}
+			}
+			else
+			{
+
+			}
 		}
 		else
 		{
 
 		}
+
+		DB = value;
 	}
 
 	uint8_t MemoryManager::Read_Registers(uint32_t addr)

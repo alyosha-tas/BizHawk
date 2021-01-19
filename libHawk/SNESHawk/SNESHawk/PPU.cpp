@@ -38,9 +38,4 @@ namespace SNESHawk
 	{
 		return mem_ctrl->ClockPPU();
 	}
-
-	void PPU::AtVsyncNMI()
-	{
-		return mem_ctrl->AtVsyncNMI();
-	}
 }

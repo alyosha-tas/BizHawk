@@ -30,12 +30,12 @@ namespace SNESHawk
 			MemMap.Load_BIOS(bios);
 		}
 
-		void Load_ROM(uint8_t* ext_prg_rom_1, uint32_t ext_prg_rom_size_1, string MD5, bool is_PAL)
+		void Load_ROM(uint8_t* ext_rom, uint32_t ext_rom_size, string MD5, bool is_PAL)
 		{
 			MemMap.ppu_pntr = &ppu;
 			ppu.mem_ctrl = &MemMap;
 			
-			MemMap.Load_PRG_ROM(ext_prg_rom_1, ext_prg_rom_size_1);
+			MemMap.Load_ROM(ext_rom, ext_rom_size, MD5);
 
 			// initialize the proper mapper
 			Setup_Mapper(MD5);
@@ -183,6 +183,10 @@ namespace SNESHawk
 
 		#pragma region Memory Domain Functions
 
+		uint8_t GetROM(uint32_t addr)
+		{
+			return MemMap.ROM[addr];
+		}
 
 		uint8_t GetRAM(uint32_t addr)
 		{
@@ -202,6 +206,11 @@ namespace SNESHawk
 		uint8_t GetSysBus(uint32_t addr)
 		{
 			return MemMap.ReadMemory(addr);
+		}
+
+		void SetROM(uint32_t addr, uint8_t value)
+		{
+			// currently not allowed
 		}
 
 		void SetRAM(uint32_t addr, uint8_t value)

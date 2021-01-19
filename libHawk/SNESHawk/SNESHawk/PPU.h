@@ -41,7 +41,6 @@ namespace SNESHawk
 		void WritePPU(uint32_t, uint8_t);
 		void RunCpuOne();
 		void ClockPPU();
-		void AtVsyncNMI();
 
 		MemoryManager* mem_ctrl;
 

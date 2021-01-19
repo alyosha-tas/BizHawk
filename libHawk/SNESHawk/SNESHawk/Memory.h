@@ -47,11 +47,13 @@ namespace SNESHawk
 		R5A22* cpu_pntr = nullptr;
 		Mapper* mapper_pntr = nullptr;
 		uint8_t* ROM = nullptr;
+		uint8_t* mapped_ROM = nullptr;
 		uint8_t* Cart_RAM = nullptr;
 		uint8_t* bios_rom = nullptr;
 
 		// initialized by core loading, not savestated
 		uint32_t ROM_Length;
+		uint32_t mapped_ROM_Length;
 		uint32_t ROM_Mapper;
 		uint32_t Cart_RAM_Length;
 
@@ -104,13 +106,19 @@ namespace SNESHawk
 
 		}
 
-		void Load_PRG_ROM(uint8_t* ext_prg_rom_1, uint32_t ext_prg_rom_size_1)
+		// this function does 2 things, it holds the external ROM and also applies mapping according to the MD5 string of the game ROM
+		// the resulting array is 16MB and can be directly addressed in memory reads and remapped according to mapper specs / SRAM
+		void Load_ROM(uint8_t* ext_rom, uint32_t ext_rom_size, string MD5)
 		{
-			ROM = new uint8_t[ext_prg_rom_size_1];
+			ROM = new uint8_t[ext_rom_size];
 
-			memcpy(ROM, ext_prg_rom_1, ext_prg_rom_size_1);
+			memcpy(ROM, ext_rom, ext_rom_size);
 
-			ROM_Length = ext_prg_rom_size_1;
+			ROM_Length = ext_rom_size;
+
+			mapped_ROM_Length = 0x1000000;
+
+			mapped_ROM = new uint8_t[mapped_ROM_Length];			
 		}
 
 		void Register_Reset()

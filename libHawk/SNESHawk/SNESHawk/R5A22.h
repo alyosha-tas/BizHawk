@@ -25,7 +25,9 @@ namespace SNESHawk
 
 		// State variables
 
+
 		// variables for operations
+		bool EM; // emulation mode
 		bool branch_taken;
 		bool my_iflag;
 		bool booltemp;
@@ -36,15 +38,16 @@ namespace SNESHawk
 		int32_t lo, hi;
 
 		// CPU
+		uint8_t S;
+		uint8_t DBR;
+		uint8_t PBR;
 		uint8_t A;
 		uint8_t X;
 		uint8_t Y;
 		uint8_t P;
-		uint8_t S;
-		uint8_t BR;
 		uint16_t PC;
+		uint16_t D;
 
-		//opcode bytes.. theoretically redundant with the temp variables? who knows.
 		bool RDY;
 		bool NMI;
 		bool IRQ;
@@ -95,13 +98,13 @@ namespace SNESHawk
 			JMP_abs, JSL,
 
 			//[long absolute BR]
-			BRL, 
+			BRL,
 
 			//[zero page misc]
 			ZpIdx_Stage3_X, ZpIdx_Stage3_Y,
 			ZpIdx_RMW_Stage4, ZpIdx_RMW_Stage6,
 			//[zero page WRITE]
-			ZP_WRITE_STA, ZP_WRITE_STX, ZP_WRITE_STY, ZP_WRITE_SAX,
+			ZP_WRITE_STA, ZP_WRITE_STX, ZP_WRITE_STY, ZP_WRITE_SAX, ZP_WRITE_STZ,
 			//[zero page RMW]
 			ZP_RMW_Stage3, ZP_RMW_Stage5,
 			ZP_RMW_DEC, ZP_RMW_INC, ZP_RMW_ASL, ZP_RMW_LSR, ZP_RMW_ROR, ZP_RMW_ROL,
@@ -165,7 +168,10 @@ namespace SNESHawk
 
 			Ind_zp_Stage4,
 
-			REP, SEP,
+			StackEA_1, StackEA_2,
+			DirectEA_RD,
+
+			REP, SEP, TSB, TRB,
 
 			End,
 			End_ISpecial, //same as end, but preserves the iflag set by the instruction
@@ -191,59 +197,59 @@ namespace SNESHawk
 			Fetch2,					PushPCH,			PushPCL,				PushP_BRK,					FetchPCLVector,				FetchPCHVector,				End_SuppressInterrupt,		NOP,		NOP,		NOP,		NOP,		NOP,	/*BRK [implied]*/ 
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ORA,		End ,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (addr,X) [indexed indirect READ]*/ 
 			Fetch2,					PushPCH,			PushPCL,				PushP_COP,					FetchPCLVector,				FetchPCHVector,				End_SuppressInterrupt,		NOP,		NOP,		NOP,		NOP,		NOP,	/*COP [implied]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ORA,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [stack]*/
+			Fetch2,					DirectEA_RD,		TSB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TSB [Direct]*/
 			Fetch2,					ZP_READ_ORA,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA zp [zero page READ]*/ 
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ASL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL zp [zero page RMW]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [d]*/
 			FetchDummy,				PushP,				End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PHP [implied]*/ 
 			Imm_ORA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA #nn [immediate]*/ 
 			Imp_ASL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL A [accumulator]*/ 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PHD [implied]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TSB [absolute]*/
 			Fetch2,					Fetch3,				Abs_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ASL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL addr [absolute RMW]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [al]*/
 			//0x10
 			RelBranch_Stage2_BPL,	End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BPL +/-rel*/ 
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (addr),Y* [indirect indexed READ]*/
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_NOP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
+			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TSB [Direct]*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ORA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [stack, Y]*/
+			Fetch2,					DirectEA_RD,		TRB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL zp,X [zero page indexed RMW]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [d],y*/
 			Imp_CLC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CLC [implied]*/ 
 			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr,Y* [absolute indexed READ Y]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC A [accumulator]*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TCS [implied]*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*TRB [absolute]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA addr,X* [absolute indexed READ X]*/
 			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ASL addr,X [absolute indexed RMW X]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ORA [al,x]*/
 			//0x20
 			Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*JSR*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (addr,X) [indexed indirect READ]*/
 			Fetch2,					Fetch3,				PushBR,					NOP,						Fetch4,						PushPCH,					PushPCL,					JSL,		NOP,		NOP,		NOP,		NOP,	/*JSL [Absolute Long]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_AND,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND [stack]*/
 			Fetch2,					ZP_READ_BIT,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BIT zp [zero page READ]*/
 			Fetch2,					ZP_READ_AND,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL zp [zero page RMW]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND [d]*/
 			FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PLP [implied] */
 			Imm_AND,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND #nn [immediate]*/
 			Imp_ROL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL A [accumulator]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PLD [implied]*/
 			Fetch2,					Fetch3,				Abs_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BIT addr [absolute]*/
 			Fetch2,					Fetch3,				Abs_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND addr [absolute READ]*/
 			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL addr [absolute RMW]*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND [al]*/
 			//0x30,
 			RelBranch_Stage2_BMI,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BMI +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (addr),Y* [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_AND,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND [stack, Y]*/
+			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*AND zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROL zp,X [zero page indexed RMW]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
@@ -259,7 +265,7 @@ namespace SNESHawk
 			FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTI*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (addr,X) [indexed indirect READ]*/
 			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*WDM (NOP) [immediate]*/ 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_EOR,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR [stack]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_EOR,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_LSR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR zp [zero page RMW]*/
@@ -276,7 +282,7 @@ namespace SNESHawk
 			RelBranch_Stage2_BVC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BVC +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (addr),Y* [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_EOR,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR [stack, Y]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*EOR zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LSR zp,X [zero page indexed RMW]*/
@@ -293,8 +299,8 @@ namespace SNESHawk
 			FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*RTS*/	//can't fetch here because the PC isnt ready until the end of the last clock
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr,X) [indexed indirect READ]*/
 			Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PER [immediate]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ADC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC [stack]*/
+			Fetch2,					ZP_WRITE_STZ,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR zp [zero page RMW]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
@@ -310,8 +316,8 @@ namespace SNESHawk
 			RelBranch_Stage2_BVS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BVS +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (addr),Y [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ADC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC [stack, Y]*/
+			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STZ,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ADC zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*ROR zp,X [zero page indexed RMW]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
@@ -326,8 +332,8 @@ namespace SNESHawk
 			//0x80,
 			RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BRA +/-rel [relative]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_WRITE_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (addr,X) [indexed indirect WRITE]*/
-			Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP [immediate]*/ 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BRL [immediate]*/ 
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_STA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA [stack]*/
 			Fetch2,					ZP_WRITE_STY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY zp [zero page WRITE]*/
 			Fetch2,					ZP_WRITE_STA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA zp [zero page WRITE]*/
 			Fetch2,					ZP_WRITE_STX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STX zp [zero page WRITE]*/
@@ -344,7 +350,7 @@ namespace SNESHawk
 			RelBranch_Stage2_BCC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BCC +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_WRITE_Stage5,		IndIdx_WRITE_Stage6_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (addr),Y [indirect indexed WRITE]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_STA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_STA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA [stack, Y]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STY zp,X [zero page indexed WRITE X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STA zp,X [zero page indexed WRITE X]*/
 			Fetch2,					ZpIdx_Stage3_Y,		ZP_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*STX zp,Y [zero page indexed WRITE Y]*/
@@ -361,7 +367,7 @@ namespace SNESHawk
 			Imm_LDY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_LDA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (addr,X) [indexed indirect READ]*/
 			Imm_LDX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX #nn [immediate]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_LDA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA [stack]*/
 			Fetch2,					ZP_READ_LDY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY zp [zero page READ]*/
 			Fetch2,					ZP_READ_LDA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA zp [zero page READ]*/
 			Fetch2,					ZP_READ_LDX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX zp [zero page READ]*/
@@ -378,7 +384,7 @@ namespace SNESHawk
 			RelBranch_Stage2_BCS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BCS +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (addr),Y* [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_LDA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA [stack, Y]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDY zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDA zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_Y,		ZP_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*LDX zp,Y [zero page indexed READ Y]*/
@@ -395,7 +401,7 @@ namespace SNESHawk
 			Imm_CPY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (addr,X) [indexed indirect READ]*/
 			Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*REP [immediate]*/ 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_CMP, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP [stack]*/
 			Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPY zp [zero page READ]*/
 			Fetch2,					ZP_READ_CMP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC zp [zero page RMW]*/
@@ -412,8 +418,8 @@ namespace SNESHawk
 			RelBranch_Stage2_BNE,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BNE +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (addr),Y* [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_CMP,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP [stack, Y]*/
+			Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PEI [immediate]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CMP zp,X [zero page indexed READ]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*DEC zp,X [zero page indexed RMW X]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
@@ -429,7 +435,7 @@ namespace SNESHawk
 			Imm_CPX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX #nn [immediate]*/
 			Fetch2,					IdxInd_Stage3,		IdxInd_Stage4,			IdxInd_Stage5,				IdxInd_Stage6_READ_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (addr,X) [indirect indexed]*/
 			Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SEP [immediate]*/ 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_SBC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC [stack]*/
 			Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*CPX zp [zero page READ]*/
 			Fetch2,					ZP_READ_SBC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC zp [zero page READ]*/
 			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC zp [zero page RMW]*/
@@ -446,8 +452,8 @@ namespace SNESHawk
 			RelBranch_Stage2_BEQ,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*BEQ +/-rel [relative]*/
 			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (addr),Y* [indirect indexed READ]*/
 			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC (zp) [indirect zp READ]*/
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
+			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_SBC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC [stack, Y]*/
+			Fetch2,					Fetch3,				PushPERH,				PushPERL,					End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*PEA [Immediate]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*SBC zp,X [zero page indexed READ X]*/
 			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*INC zp,X [zero page indexed RMW X]*/
 			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	/*NOP*/
@@ -551,6 +557,7 @@ namespace SNESHawk
 			opcode = VOP_RESET;
 			iflag_pending = true;
 			RDY = true;
+			EM = true;
 		}
 
 		void ExecuteOne()
@@ -618,6 +625,7 @@ namespace SNESHawk
 			case ZP_WRITE_STY: ZP_WRITE_STY_F(); break;
 			case ZP_WRITE_STX: ZP_WRITE_STX_F(); break;
 			case ZP_WRITE_SAX: ZP_WRITE_SAX_F(); break;
+			case ZP_WRITE_STZ: ZP_WRITE_STZ_F(); break;
 			case IndIdx_Stage3: IndIdx_Stage3_F(); break;
 			case IndIdx_Stage4: IndIdx_Stage4_F(); break;
 			case IndIdx_WRITE_Stage5: IndIdx_WRITE_Stage5_F(); break;
@@ -783,8 +791,13 @@ namespace SNESHawk
 			case Abs_RMW_Stage5_ROL: Abs_RMW_Stage5_ROL_F(); break;
 			case Abs_RMW_Stage5_LSR: Abs_RMW_Stage5_LSR_F(); break;
 			case Abs_RMW_Stage6: Abs_RMW_Stage6_F(); break;
+			case StackEA_1: StackEA_1_F(); break;
+			case StackEA_2: StackEA_2_F(); break;
+			case DirectEA_RD: DirectEA_RD_F(); break;
 			case REP: REP_F(); break;
 			case SEP: SEP_F(); break;
+			case TSB: TSB_F(); break;
+			case TRB: TRB_F(); break;
 			case End_ISpecial: End_ISpecial_F(); break;
 			case End_SuppressInterrupt: End_SuppressInterrupt_F(); break;
 			case End: End_F(); break;
@@ -858,7 +871,7 @@ namespace SNESHawk
 
 		void PushPCL_F() { WriteMemory((uint16_t)(S-- + 0x100), (uint8_t)PC); }
 
-		void PushBR_F() { WriteMemory((uint16_t)(S-- + 0x100), BR); }
+		void PushBR_F() { WriteMemory((uint16_t)(S-- + 0x100), PBR); }
 
 		void PushPERH_F() 
 		{ 
@@ -986,6 +999,9 @@ namespace SNESHawk
 		void ZP_WRITE_STX_F() { WriteMemory(opcode2, X); }
 
 		void ZP_WRITE_SAX_F() { WriteMemory(opcode2, (uint8_t)(X & A)); }
+
+		void ZP_WRITE_STZ_F() { WriteMemory(ea, 0); }
+
 
 		void Ind_zp_Stage4_F() 
 		{
@@ -1779,6 +1795,33 @@ namespace SNESHawk
 			ExecuteOneRetry();
 		}
 
+		void StackEA_1_F()
+		{
+			ea = (uint16_t)(S + opcode2);
+		}
+
+		void StackEA_2_F()
+		{
+			ea = (uint16_t)(S + opcode2);
+			ea += Y;
+		}
+
+		void DirectEA_RD_F()
+		{
+			ea = (uint16_t)(D + opcode2);
+			alu_temp = ReadMemory(ea);
+		}
+
+		void TSB_F()
+		{
+
+		}
+
+		void TRB_F()
+		{
+
+		}
+
 		#pragma endregion
 
 		#pragma region Disassemble
@@ -2025,24 +2068,24 @@ namespace SNESHawk
 		{
 			"BRK",							// 0x00
 			"ORA (d8,X)",
-			"NOP",
-			"NOP",
-			"NOP d8",
+			"COP d8",
+			"ORA (d8,S)",
+			"TBS d8",
 			"ORA d8",
 			"ASL d8",
-			"NOP",
+			"ORA [d16]",
 			"PHP",
 			"ORA #d8",
 			"ASL A",
-			"NOP",
+			"PHD",
 			"NOP (d16)",
 			"ORA d16",
 			"ASL d16",
-			"NOP",
+			"TSB",
 			"BPL r8",						// 0x10
 			"ORA (d8),Y *",
-			"NOP",
-			"NOP",
+			"ORA (d8)",
+			"ORA (d8,S),Y",
 			"NOP d8,X",
 			"ORA d8,X",
 			"ASL d8,X",
@@ -2057,8 +2100,8 @@ namespace SNESHawk
 			"NOP",
 			"JSR d16",						// 0x20
 			"AND (d8,X)",
-			"NOP",
-			"NOP",
+			"JSL (d16)",
+			"AND (d8,S)",
 			"BIT d8",
 			"AND d8",
 			"ROL d8",
@@ -2073,8 +2116,8 @@ namespace SNESHawk
 			"NOP",
 			"BMI r8",						// 0x30
 			"AND (d8),Y *",
-			"NOP",
-			"NOP",
+			"AND (d8)",
+			"ORA (d8,S),Y",
 			"NOP d8,X",
 			"AND d8,X",
 			"ROL d8,X",
@@ -2089,8 +2132,8 @@ namespace SNESHawk
 			"NOP",
 			"RTI",							// 0x40
 			"EOR (d8,X)",
-			"NOP",
-			"NOP",
+			"WDM",
+			"EOR (d8,S)",
 			"NOP d8",
 			"EOR d8",
 			"LSR d8",
@@ -2105,8 +2148,8 @@ namespace SNESHawk
 			"NOP",
 			"BVC r8",						// 0x50
 			"EOR (d8),Y *",
-			"NOP",
-			"NOP",
+			"EOR (d8)",
+			"EOR (d8,S),Y",
 			"NOP d8,X",
 			"EOR d8,X",
 			"LSR d8,X",
@@ -2121,8 +2164,8 @@ namespace SNESHawk
 			"NOP",
 			"RTS",							// 0x60
 			"ADC (d8,X)",
-			"NOP",
-			"NOP",
+			"PER (d16)",
+			"ADC (d8,S)",
 			"NOP d8",
 			"ADC d8",
 			"ROR d8",
@@ -2137,8 +2180,8 @@ namespace SNESHawk
 			"NOP",
 			"BVS r8",						//0x70
 			"ADC (d8),Y *",
-			"NOP",
-			"NOP",
+			"ADC (d8)",
+			"ADC (d8,S),Y",
 			"NOP d8,X",
 			"ADC d8,X",
 			"ROR d8,X",
@@ -2153,8 +2196,8 @@ namespace SNESHawk
 			"NOP",
 			"NOP #d8",						// 0x80
 			"STA (d8,X)",
-			"NOP #d8",
-			"NOP",
+			"BRL",
+			"STA (d8,S)",
 			"STY d8",
 			"STA d8",
 			"STX d8",
@@ -2169,8 +2212,8 @@ namespace SNESHawk
 			"NOP",
 			"BCC r8",						// 0x90
 			"STA (d8),Y",
-			"NOP",
-			"NOP",
+			"STA (d8)",
+			"STA (d8,S),Y",
 			"STY d8,X",
 			"STA d8,X",
 			"STX d8,Y",
@@ -2186,7 +2229,7 @@ namespace SNESHawk
 			"LDY #d8",						// 0xA0
 			"LDA (d8,X)",
 			"LDX #d8",
-			"NOP",
+			"LDA (d8,S)",
 			"LDY d8",
 			"LDA d8",
 			"LDX d8",
@@ -2201,8 +2244,8 @@ namespace SNESHawk
 			"NOP",
 			"BCS r8",						// 0xB0
 			"LDA (d8),Y *",
-			"NOP",
-			"LAX (d8),Y *",
+			"LDA (d8)",
+			"LDA (d8,S),Y",
 			"LDY d8,X",
 			"LDA d8,X",
 			"LDX d8,Y",
@@ -2217,8 +2260,8 @@ namespace SNESHawk
 			"NOP",
 			"CPY #d8",						// 0xC0
 			"CMP (d8,X)",
-			"NOP #d8",
-			"NOP",
+			"REP #d8",
+			"CMP (d8,S)",
 			"CPY d8",
 			"CMP d8",
 			"DEC d8",
@@ -2233,8 +2276,8 @@ namespace SNESHawk
 			"NOP",
 			"BNE r8",						// 0xD0
 			"CMP (d8),Y *",
-			"NOP",
-			"NOP",
+			"CMP (d8)",
+			"CMP (d8,S),Y",
 			"NOP d8,X",
 			"CMP d8,X",
 			"DEC d8,X",
@@ -2249,8 +2292,8 @@ namespace SNESHawk
 			"NOP",
 			"CPX #d8",						// 0xE0
 			"SBC (d8,X)",
-			"NOP #d8",
-			"NOP",
+			"SEP #d8",
+			"SBC (d8,S)",
 			"CPX d8",
 			"SBC d8",
 			"INC d8",
@@ -2265,8 +2308,8 @@ namespace SNESHawk
 			"NOP",
 			"BEQ r8",						// 0xF0
 			"SBC (d8),Y *",
-			"NOP",
-			"NOP",
+			"SBC (d8)",
+			"SBC (d8,S),Y",
 			"NOP d8,X",
 			"SBC d8,X",
 			"INC d8,X",
@@ -2287,6 +2330,7 @@ namespace SNESHawk
 
 		uint8_t* SaveState(uint8_t* saver)
 		{
+			saver = bool_saver(EM, saver);
 			saver = bool_saver(branch_taken, saver);
 			saver = bool_saver(my_iflag, saver);
 			saver = bool_saver(booltemp, saver);
@@ -2306,12 +2350,14 @@ namespace SNESHawk
 			saver = byte_saver(Y, saver);
 			saver = byte_saver(P, saver);
 			saver = byte_saver(S, saver);
-			saver = byte_saver(BR, saver);
+			saver = byte_saver(DBR, saver);
+			saver = byte_saver(PBR, saver);
 			saver = byte_saver(opcode2, saver);
 			saver = byte_saver(opcode3, saver);
 			saver = byte_saver(opcode4, saver);
 
 			saver = short_saver(PC, saver);
+			saver = short_saver(D, saver);
 			saver = short_saver(value16, saver);
 
 			saver = int_saver(tempint, saver);
@@ -2333,6 +2379,7 @@ namespace SNESHawk
 
 		uint8_t* LoadState(uint8_t* loader)
 		{
+			loader = bool_loader(&EM, loader);
 			loader = bool_loader(&branch_taken, loader);
 			loader = bool_loader(&my_iflag, loader);
 			loader = bool_loader(&booltemp, loader);
@@ -2352,12 +2399,14 @@ namespace SNESHawk
 			loader = byte_loader(&Y, loader);
 			loader = byte_loader(&P, loader);
 			loader = byte_loader(&S, loader);
-			loader = byte_loader(&BR, loader);
+			loader = byte_loader(&DBR, loader);
+			loader = byte_loader(&PBR, loader);
 			loader = byte_loader(&opcode2, loader);
 			loader = byte_loader(&opcode3, loader);
 			loader = byte_loader(&opcode4, loader);
 
 			loader = short_loader(&PC, loader);
+			loader = short_loader(&D, loader);
 			loader = short_loader(&value16, loader);
 
 			loader = sint_loader(&tempint, loader);

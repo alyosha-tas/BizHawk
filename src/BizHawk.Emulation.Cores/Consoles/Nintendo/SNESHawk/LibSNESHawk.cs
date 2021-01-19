@@ -31,13 +31,13 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// Load ROM image.
 		/// </summary>
 		/// <param name="core">opaque state pointer</param>
-		/// <param name="romdata_1">the rom data, can be disposed of once this function returns</param>
-		/// <param name="length_1">length of romdata in bytes</param>
+		/// <param name="romdata">the rom data, can be disposed of once this function returns</param>
+		/// <param name="length">length of rom data in bytes</param>
 		/// <param name="MD5">Hash used for mapper loading</param>
 		/// <param name="is_PAL">play on PAL system</param>
 		/// <returns>0 on success, negative value on failure.</returns>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
-		public static extern int SNES_load(IntPtr core, byte[] romdata_1, uint length_1, byte[] chrdata_1, uint chr_length_1, char[] MD5, bool is_PAL);
+		public static extern int SNES_load(IntPtr core, byte[] romdata, uint length, char[] MD5, bool is_PAL);
 
 		/// <summary>
 		/// Reset.
@@ -77,8 +77,10 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// Get Video data
 		/// </summary>
 		/// <param name="core">opaque state pointer</param>
-		/// <param name="aud_buf">where to send left audio to</param>
-		/// <param name="n_samp">number of left samples</param>
+		/// <param name="aud_buf_L">where to send left audio to</param>
+		/// <param name="n_samp_L">number of left samples</param>
+		/// <param name="aud_buf_R">where to send right audio to</param>
+		/// <param name="n_samp_R">number of right samples</param>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
 		public static extern uint SNES_get_audio(IntPtr core, int[] aud_buf_L,  ref uint n_samp_L, int[] aud_buf_R, ref uint n_samp_R);
 
@@ -105,6 +107,14 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		#endregion
 
 		#region Memory Domain Functions
+
+		/// <summary>
+		/// Read the ROM
+		/// </summary>
+		/// <param name="core">opaque state pointer</param>
+		/// <param name="addr">rom address</param>
+		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
+		public static extern byte SNES_getrom(IntPtr core, int addr);
 
 		/// <summary>
 		/// Read the RAM
@@ -137,6 +147,15 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// <param name="addr">system bus address</param>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
 		public static extern byte SNES_getsysbus(IntPtr core, int addr);
+
+		/// <summary>
+		/// Read the ROM
+		/// </summary>
+		/// <param name="core">opaque state pointer</param>
+		/// <param name="addr">ram address</param>
+		/// <param name="value">write value</param>
+		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
+		public static extern void SNES_setrom(IntPtr core, int addr, byte value);
 
 		/// <summary>
 		/// Read the RAM
@@ -218,7 +237,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// </summary>
 		/// <param name="core">opaque state pointer</param>
 		/// <param name="h">pointer to const char *</param>
-		/// <param name="callback">null to clear</param>
+		/// <param name="l">copy length, must be obtained from appropriate get legnth function</param>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
 		public static extern void SNES_getheader(IntPtr core, StringBuilder h, int l);
 
@@ -226,7 +245,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// get the register state from the cpu
 		/// </summary>
 		/// <param name="core">opaque state pointer</param>
-		/// <param name="r">pointer to const char *</param>
+		/// <param name="h">pointer to const char *</param>
 		/// <param name="t">call type</param>
 		/// <param name="l">copy length, must be obtained from appropriate get legnth function</param>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -236,7 +255,7 @@ namespace BizHawk.Emulation.Cores.Nintendo.SNESHawk
 		/// get the opcode disassembly
 		/// </summary>
 		/// <param name="core">opaque state pointer</param>
-		/// <param name="d">pointer to const char *</param>
+		/// <param name="h">pointer to const char *</param>
 		/// <param name="t">call type</param>
 		/// <param name="l">copy length, must be obtained from appropriate get legnth function</param>
 		[DllImport("SNESHawk.dll", CallingConvention = CallingConvention.Cdecl)]
