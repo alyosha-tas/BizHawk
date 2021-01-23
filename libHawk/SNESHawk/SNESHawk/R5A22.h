@@ -8,14 +8,18 @@ using namespace std;
 namespace SNESHawk
 {
 	class MemoryManager;
+
+	// Method of Operation: It can take up to 12 master clock sycles for an instruction cycle to execute. So all instruction cycles are assumed to be 
+	// 12 master cycles long, and then some are skipped based on the check done on the second master cycle of each instruction cycle.
+	// No instruction cycles are run during memory refresh
+	// DMA is also handled here
 	
 	class R5A22
 	{
 	public:
 		#pragma region Variable Declarations
 
-		// pointer to controlling memory manager goes here
-		// this will be iplementation dependent
+		// pointer to controlling memory manager
 		MemoryManager* mem_ctrl;
 
 		void WriteMemory(uint32_t, uint8_t);
@@ -23,11 +27,15 @@ namespace SNESHawk
 		uint8_t DummyReadMemory(uint32_t);
 		uint8_t PeekMemory(uint32_t);
 
+		// variables for building the instruction table
+		int op;
+		int op_length = 12;
+
+
 		// State variables
 
 
 		// variables for operations
-		bool second_byte_done; // used when an instruction needs to read 2 bytes in 16 bit mode
 		bool EM; // emulation mode
 		bool branch_taken;
 		bool my_iflag;
@@ -86,6 +94,15 @@ namespace SNESHawk
 
 			NOP,
 
+			// check 16 bit operations
+			MMT, XYT,
+
+			// check memory access time
+			CHP, CHE, CHS, SKP,
+
+			// basic operations
+			End_LDA, End_ORA, End_CMP, End_ADC, End_AND, End_EOR, End_SBC,
+
 			JSR,
 			IncPC, //from RTS
 
@@ -107,21 +124,17 @@ namespace SNESHawk
 			ZpIdx_Stage3_X, ZpIdx_Stage3_Y,
 			ZpIdx_RMW_Stage4, ZpIdx_RMW_Stage6,
 			//[zero page WRITE]
-			ZP_WRITE_STA, ZP_WRITE_STX, ZP_WRITE_STY, ZP_WRITE_SAX, ZP_WRITE_STZ,
+			ZP_WRITE_STA, ZP_WRITE_STX, ZP_WRITE_STY, ZP_WRITE_STZ,
 			//[zero page RMW]
 			ZP_RMW_Stage3, ZP_RMW_Stage5,
 			ZP_RMW_DEC, ZP_RMW_INC, ZP_RMW_ASL, ZP_RMW_LSR, ZP_RMW_ROR, ZP_RMW_ROL,
 			//[zero page READ]
-			ZP_READ_EOR, ZP_READ_BIT, ZP_READ_ORA, ZP_READ_LDA, ZP_READ_LDY, ZP_READ_LDX, ZP_READ_CPX, ZP_READ_SBC, ZP_READ_CPY, ZP_READ_NOP, ZP_READ_ADC, ZP_READ_AND, ZP_READ_CMP, ZP_READ_LAX,
+			ZP_READ_EOR, ZP_READ_BIT, ZP_READ_ORA, ZP_READ_LDA, ZP_READ_LDY, ZP_READ_LDX, ZP_READ_CPX, ZP_READ_SBC, ZP_READ_CPY, ZP_READ_NOP, ZP_READ_ADC, ZP_READ_AND, ZP_READ_CMP,
 
-			//[indexed indirect READ] (addr,X)
-			//[indexed indirect WRITE] (addr,X)
+			// (d,x)
 			IdxInd_Stage3, IdxInd_Stage3a, IdxInd_Stage4, IdxInd_Stage5,
-			IdxInd_Stage6_READ_ORA, IdxInd_Stage6_READ_SBC, IdxInd_Stage6_READ_LDA, IdxInd_Stage6_READ_EOR, IdxInd_Stage6_READ_CMP, IdxInd_Stage6_READ_ADC, IdxInd_Stage6_READ_AND,
-			IdxInd_Stage6_READ_LAX,
-			IdxInd_Stage6_WRITE_STA, IdxInd_Stage6_WRITE_SAX,
-			IdxInd_Stage6_RMW, //work happens in stage 7
-			IdxInd_Stage8_RMW,
+			IdxInd_Stage6_READ, IdxInd_Stage6_READa,
+			IdxInd_Stage6_STA, IdxInd_Stage6_STAa,
 
 			//[absolute indexed]
 			AbsIdx_Stage3_X, AbsIdx_Stage3_Y, AbsIdx_Stage4,
@@ -137,7 +150,8 @@ namespace SNESHawk
 			AbsIdx_RMW_Stage6_ROR, AbsIdx_RMW_Stage6_DEC, AbsIdx_RMW_Stage6_INC, AbsIdx_RMW_Stage6_ASL, AbsIdx_RMW_Stage6_LSR, AbsIdx_RMW_Stage6_ROL,
 
 			IncS, DecS,
-			PushPCL, PushPCH, PushPBR, PushPBR_BRK, PushPERH, PushPERL, PushP, PullP, PullPCL, PullPCH_NoInc, PushA, PullA_NoInc, PullP_NoInc,
+			PushPCL, PushPCH, PushPBR, PushPBR_BRK, PushPERH, PushPERL, PushP, PullP, PullPCL, PullPCH_NoInc, PullA_NoInc, PullP_NoInc,
+			PushA, PushB, PushK, PushDH, PushDL, PushYH, PushYL, PushXH, PushXL,
 			PushP_BRK, PushP_COP, PushP_NMI, PushP_IRQ, PushP_Reset, PushDummy,
 			FetchPCLVector, FetchPCHVector, //todo - may not need these ?? can reuse fetch2 and fetch3?
 
@@ -160,14 +174,11 @@ namespace SNESHawk
 			//JMP (addr) 0x6C
 			AbsInd_JMP_Stage4, AbsInd_JMP_Stage5,
 
-			//[indirect indexed] (i.e. LDA (addr),Y	)
-			IndIdx_Stage3, IndIdx_Stage4, IndIdx_READ_Stage5, IndIdx_WRITE_Stage5,
-			IndIdx_WRITE_Stage6_STA, IndIdx_WRITE_Stage6_SHA,
-			IndIdx_READ_Stage6_LDA, IndIdx_READ_Stage6_CMP, IndIdx_READ_Stage6_ORA, IndIdx_READ_Stage6_SBC, IndIdx_READ_Stage6_ADC, IndIdx_READ_Stage6_AND, IndIdx_READ_Stage6_EOR,
-			IndIdx_READ_Stage6_LAX, IndIdx_READ_Stage6_STA,
-			IndIdx_RMW_Stage5,
-			IndIdx_RMW_Stage6, //just reads from effective address
-			IndIdx_RMW_Stage8,
+			// (d),y
+			IndIdx_Stage3, IndIdx_Stage3a, 
+			IndIdx_Stage4, IndIdx_Stage4a,
+			IndIdx_Stage5, IndIdx_Stage5a,
+			IndIdx_Stage5_STA, IndIdx_Stage5_STAa,
 
 			Ind_zp_Stage4,
 
@@ -194,294 +205,7 @@ namespace SNESHawk
 		};
 
 		// instruction table
-		Uop Microcode[(256 + 8) * 12]  =
-		{
-			//0x00
-			Fetch2,					PushPBR_BRK,		PushPCH,				PushPCL,					PushP_BRK,					FetchPCLVector,				FetchPCHVector,				End_NoInt,	NOP,		NOP,		NOP,		NOP,	// BRK s 
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_ORA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d,x) 
-			Fetch2,					PushPBR_BRK,		PushPCH,				PushPCL,					PushP_COP,					FetchPCLVector,				FetchPCHVector,				End_NoInt,	NOP,		NOP,		NOP,		NOP,	// COP s
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ORA,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d,s
-			Fetch2,					DirectEA_RD,		TSB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB d
-			Fetch2,					ZP_READ_ORA,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d 
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ASL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA [d]
-			FetchDummy,				PushP,				End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHP s 
-			Imm_ORA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA # 
-			Imp_ASL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL A 
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHD s
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB a
-			Fetch2,					Fetch3,				Abs_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ASL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA al
-			//0x10
-			RelBranch_Stage2_BPL,	End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BPL r 
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ORA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d,s),y
-			Fetch2,					DirectEA_RD,		TRB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB d
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA [d],y
-			Imp_CLC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLC i 
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC A
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCS i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB a
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA al,x
-			//0x20
-			Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR a
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_AND,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d,x)
-			Fetch2,					Fetch3,				PushPBR,				NOP,						Fetch4,						PushPCH,					PushPCL,					JSL,		NOP,		NOP,		NOP,		NOP,	// JSL al
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_AND,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d,s
-			Fetch2,					ZP_READ_BIT,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT d
-			Fetch2,					ZP_READ_AND,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND [d]
-			FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLP s
-			Imm_AND,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND #
-			Imp_ROL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL A
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLD s
-			Fetch2,					Fetch3,				Abs_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT a
-			Fetch2,					Fetch3,				Abs_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND al
-			//0x30,
-			RelBranch_Stage2_BMI,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BMI r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_AND,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d,s),y
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND [d],y
-			Imp_SEC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEC i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC A
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSC i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND al,x
-			//0x40,
-			FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTI s
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_EOR,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d,x)
-			Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WDM 
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_EOR,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d,s
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVP xyc
-			Fetch2,					ZP_READ_EOR,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_LSR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR [d]
-			FetchDummy,				PushA,				End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHA s
-			Imm_EOR,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR #
-			Imp_LSR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR A
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHK s
-			Fetch2,					JMP_abs,			End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP a
-			Fetch2,					Fetch3,				Abs_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_LSR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR al
-			//0x50,
-			RelBranch_Stage2_BVC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVC r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_EOR,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d,s),y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVN xyc
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR [d],y
-			Imp_CLI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLI i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHY s
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCD i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP al
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_LSR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR al,x
-			//0x60,
-			FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTS s
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_ADC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d,x)
-			Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PER s
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ADC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d,s
-			Fetch2,					ZP_WRITE_STZ,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ d
-			Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC [d]
-			FetchDummy,				IncS,				PullA_NoInc,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLA s
-			Imm_ADC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC #
-			Imp_ROR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR A
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTL s
-			Fetch2,					Fetch3,				AbsInd_JMP_Stage4,		AbsInd_JMP_Stage5,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a)
-			Fetch2,					Fetch3,				Abs_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC al
-			//0x70,
-			RelBranch_Stage2_BVS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVS r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ADC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d,s),y
-			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STZ,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC [d],y
-			Imp_SEI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEI i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLY s
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TDC i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a,x]
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC al,x
-			//0x80,
-			RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRA r
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_WRITE_STA,	End,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d,x)
-			Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRL rl 
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_STA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d,s
-			Fetch2,					ZP_WRITE_STY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY d
-			Fetch2,					ZP_WRITE_STA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d
-			Fetch2,					ZP_WRITE_STX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA [d]
-			Imp_DEY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEY i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT #
-			Imp_TXA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXA i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHB s
-			Fetch2,					Fetch3,				Abs_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY a
-			Fetch2,					Fetch3,				Abs_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a
-			Fetch2,					Fetch3,				Abs_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA al
-			//0x90,
-			RelBranch_Stage2_BCC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCC r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_WRITE_Stage5,		IndIdx_WRITE_Stage6_STA,	End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_STA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_STA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d,s),y
-			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d,x
-			Fetch2,					ZpIdx_Stage3_Y,		ZP_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX d,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA [d],y
-			Imp_TYA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYA i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a,y
-			Imp_TXS,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXS i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXY i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ a
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA al,x
-			//0xA0,
-			Imm_LDY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY #
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_LDA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA (d,x)
-			Imm_LDX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX #
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_LDA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d,s
-			Fetch2,					ZP_READ_LDY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY d
-			Fetch2,					ZP_READ_LDA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d
-			Fetch2,					ZP_READ_LDX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d]
-			Imp_TAY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAY i
-			Imm_LDA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA #
-			Imp_TAX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAX i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLB s
-			Fetch2,					Fetch3,				Abs_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY a
-			Fetch2,					Fetch3,				Abs_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a
-			Fetch2,					Fetch3,				Abs_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA al
-			//0xB0,
-			RelBranch_Stage2_BCS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCS r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_LDA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d,s),y
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d,x
-			Fetch2,					ZpIdx_Stage3_Y,		ZP_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX d,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d],y
-			Imp_CLV,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLV i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a,y
-			Imp_TSX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSX i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYX i
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDY,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a,x
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDX,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA al,x
-			//0xC0,
-			Imm_CPY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY #
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_CMP,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d,x)
-			Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// REP #
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_CMP, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d,s
-			Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY d
-			Fetch2,					ZP_READ_CMP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP [d]
-			Imp_INY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INY i
-			Imm_CMP,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP #
-			Imp_DEX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEX i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WAI i
-			Fetch2,					Fetch3,				Abs_READ_CPY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY a
-			Fetch2,					Fetch3,				Abs_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_DEC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP al
-			//0xD0,
-			RelBranch_Stage2_BNE,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BNE r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_CMP,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d,s),y
-			Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEI s
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP [d],y
-			Imp_CLD,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLD i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PHX s
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STP i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JML (a)
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DEC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP al,x
-			//0xE0,
-			Imm_CPX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX #
-			Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_SBC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d,x)
-			Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEP #
-			Fetch2,					StackEA_1,			IndIdx_READ_Stage6_SBC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d,s
-			Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX d
-			Fetch2,					ZP_READ_SBC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d
-			Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC [d]
-			Imp_INX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INX i
-			Imm_SBC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC #
-			FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// NOP i
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XBA i
-			Fetch2,					Fetch3,				Abs_READ_CPX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX a
-			Fetch2,					Fetch3,				Abs_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a
-			Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_INC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC al
-			//0xF0,
-			RelBranch_Stage2_BEQ,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BEQ r
-			Fetch2,					IndIdx_Stage3,		IndIdx_Stage4,			IndIdx_READ_Stage5,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d),y
-			Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d)
-			Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_SBC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d,s),y
-			Fetch2,					Fetch3,				PushPERH,				PushPERL,					End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEA s
-			Fetch2,					ZpIdx_Stage3_X,		ZP_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d,x
-			Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC [d],y
-			Imp_SED,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SED i
-			Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a,y
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLX s
-			End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XCE i
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a,x
-			Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_INC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a,x
-			NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC al,x
-			//0x100,
-			Fetch1,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1
-			RelBranch_Stage3,		End_BranchSpecial,	NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff
-			RelBranch_Stage4,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff2
-			End_NoInt,				NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff3
-			//i assume these are dummy fetches.... maybe theyre just nops? supposedly these take 7 cycles so that's the only way i can make sense of it,
-			//one of them might be the next instruction's fetch,		and whatever fetch follows it.
-			//the interrupt would then take place if necessary,		using a cached PC. but im not so sure about that.
-			FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_NMI,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_NMI
-			FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_IRQ,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_IRQ
-			FetchDummy,				FetchDummy,			PushDummy,				PushDummy,					PushP_Reset,				FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_RESET
-			Fetch1_Real,			NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1_NoInterrupt
-
-		};
+		Uop Microcode[(256 + 8) * 12 * 12];
 
 		uint8_t TableNZ[256] =
 		{
@@ -506,7 +230,7 @@ namespace SNESHawk
 		#pragma endregion
 
 		#pragma region R5A22 functions
-		
+
 		inline bool FlagCget() { return (P & 0x01) != 0; };
 		inline void FlagCset(bool value) { P = (uint8_t)((P & ~0x01) | (value ? 0x01 : 0x00)); }
 
@@ -631,25 +355,15 @@ namespace SNESHawk
 			case ZP_WRITE_STA: ZP_WRITE_STA_F(); break;
 			case ZP_WRITE_STY: ZP_WRITE_STY_F(); break;
 			case ZP_WRITE_STX: ZP_WRITE_STX_F(); break;
-			case ZP_WRITE_SAX: ZP_WRITE_SAX_F(); break;
 			case ZP_WRITE_STZ: ZP_WRITE_STZ_F(); break;
 			case IndIdx_Stage3: IndIdx_Stage3_F(); break;
+			case IndIdx_Stage3a: IndIdx_Stage3a_F(); break;
 			case IndIdx_Stage4: IndIdx_Stage4_F(); break;
-			case IndIdx_WRITE_Stage5: IndIdx_WRITE_Stage5_F(); break;
-			case IndIdx_READ_Stage5: IndIdx_READ_Stage5_F(); break;
-			case IndIdx_RMW_Stage5: IndIdx_RMW_Stage5_F(); break;
-			case IndIdx_WRITE_Stage6_STA: IndIdx_WRITE_Stage6_STA_F(); break;
-			case IndIdx_WRITE_Stage6_SHA: IndIdx_WRITE_Stage6_SHA_F(); break;
-			case IndIdx_READ_Stage6_LDA: IndIdx_READ_Stage6_LDA_F(); break;
-			case IndIdx_READ_Stage6_CMP: IndIdx_READ_Stage6_CMP_F(); break;
-			case IndIdx_READ_Stage6_AND: IndIdx_READ_Stage6_AND_F(); break;
-			case IndIdx_READ_Stage6_EOR: IndIdx_READ_Stage6_EOR_F(); break;
-			case IndIdx_READ_Stage6_LAX: IndIdx_READ_Stage6_LAX_F(); break;
-			case IndIdx_READ_Stage6_ADC: IndIdx_READ_Stage6_ADC_F(); break;
-			case IndIdx_READ_Stage6_SBC: IndIdx_READ_Stage6_SBC_F(); break;
-			case IndIdx_READ_Stage6_ORA: IndIdx_READ_Stage6_ORA_F(); break;
-			case IndIdx_RMW_Stage6: IndIdx_RMW_Stage6_F(); break;
-			case IndIdx_RMW_Stage8: IndIdx_RMW_Stage8_F(); break;
+			case IndIdx_Stage4a: IndIdx_Stage4a_F(); break;
+			case IndIdx_Stage5: IndIdx_Stage5_F(); break;
+			case IndIdx_Stage5a: IndIdx_Stage5a_F(); break;
+			case IndIdx_Stage5_STA: IndIdx_Stage5_STA_F(); break;
+			case IndIdx_Stage5_STAa: IndIdx_Stage5_STAa_F(); break;
 			case Ind_zp_Stage4: Ind_zp_Stage4_F(); break;
 			case RelBranch_Stage2_BVS: RelBranch_Stage2_BVS_F(); break;
 			case RelBranch_Stage2_BVC: RelBranch_Stage2_BVC_F(); break;
@@ -664,6 +378,12 @@ namespace SNESHawk
 			case RelBranch_Stage3: RelBranch_Stage3_F(); break;
 			case RelBranch_Stage4: RelBranch_Stage4_F(); break;
 			case NOP: NOP_F(); break;
+			case MMT: MMT_F(); break;
+			case XYT: XYT_F(); break;
+			case CHP: CHP_F(); break;
+			case CHE: CHE_F(); break;
+			case CHS: CHS_F(); break;
+			case SKP: SKP_F(); break;
 			case DecS: DecS_F(); break;
 			case IncS: IncS_F(); break;
 			case JSR: JSR_F(); break;
@@ -692,7 +412,6 @@ namespace SNESHawk
 			case ZP_READ_LDA: ZP_READ_LDA_F(); break;
 			case ZP_READ_LDY: ZP_READ_LDY_F(); break;
 			case ZP_READ_LDX: ZP_READ_LDX_F(); break;
-			case ZP_READ_LAX: ZP_READ_LAX_F(); break;
 			case ZP_READ_CPY: ZP_READ_CPY_F(); break;
 			case ZP_READ_CMP: ZP_READ_CMP_F(); break;
 			case ZP_READ_CPX: ZP_READ_CPX_F(); break;
@@ -732,18 +451,10 @@ namespace SNESHawk
 			case IdxInd_Stage3a: IdxInd_Stage3a_F(); break;
 			case IdxInd_Stage4: IdxInd_Stage4_F(); break;
 			case IdxInd_Stage5: IdxInd_Stage5_F(); break;
-			case IdxInd_Stage6_READ_LDA: IdxInd_Stage6_READ_LDA_F(); break;
-			case IdxInd_Stage6_READ_ORA: IdxInd_Stage6_READ_ORA_F(); break;
-			case IdxInd_Stage6_READ_LAX: IdxInd_Stage6_READ_LAX_F(); break;
-			case IdxInd_Stage6_READ_CMP: IdxInd_Stage6_READ_CMP_F(); break;
-			case IdxInd_Stage6_READ_ADC: IdxInd_Stage6_READ_ADC_F(); break;
-			case IdxInd_Stage6_READ_AND: IdxInd_Stage6_READ_AND_F(); break;
-			case IdxInd_Stage6_READ_EOR: IdxInd_Stage6_READ_EOR_F(); break;
-			case IdxInd_Stage6_READ_SBC: IdxInd_Stage6_READ_SBC_F(); break;
-			case IdxInd_Stage6_WRITE_STA: IdxInd_Stage6_WRITE_STA_F(); break;
-			case IdxInd_Stage6_WRITE_SAX: IdxInd_Stage6_WRITE_SAX_F(); break;
-			case IdxInd_Stage6_RMW: IdxInd_Stage6_RMW_F(); break;
-			case IdxInd_Stage8_RMW: IdxInd_Stage8_RMW_F(); break;
+			case IdxInd_Stage6_READ: IdxInd_Stage6_READ_F(); break;
+			case IdxInd_Stage6_READa: IdxInd_Stage6_READa_F(); break;
+			case IdxInd_Stage6_STA: IdxInd_Stage6_STA_F(); break;
+			case IdxInd_Stage6_STAa: IdxInd_Stage6_STAa_F(); break;
 			case PushP: PushP_F(); break;
 			case PushA: PushA_F(); break;
 			case PullA_NoInc: PullA_NoInc_F(); break;
@@ -809,6 +520,14 @@ namespace SNESHawk
 			case End_ISpecial: End_ISpecial_F(); break;
 			case End_NoInt: End_NoInt_F(); break;
 			case End: End_F(); break;
+			case End_LDA: End_LDA_F(); break;
+			case End_ORA: End_ORA_F(); break;
+			case End_CMP: End_CMP_F(); break;
+			case End_ADC: End_ADC_F(); break;
+			case End_AND: End_AND_F(); break;
+			case End_EOR: End_EOR_F(); break;
+			case End_SBC: End_SBC_F(); break;
+
 			case End_BranchSpecial: End_BranchSpecial_F(); break;
 			}
 		}
@@ -979,7 +698,7 @@ namespace SNESHawk
 
 		void PushP_IRQ_F()
 		{
-			FlagBset(false);
+			//FlagBset(false);
 			WriteMemory((uint16_t)(S-- + 0x100), P);
 			FlagIset(true);
 			ea = IRQVector;
@@ -987,7 +706,7 @@ namespace SNESHawk
 
 		void PushP_NMI_F()
 		{
-			FlagBset(false);
+			//FlagBset(false);
 			WriteMemory((uint16_t)(S-- + 0x100), P);
 			FlagIset(true); //is this right?
 			ea = NMIVector;
@@ -1007,12 +726,12 @@ namespace SNESHawk
 
 		void FetchPCLVector_F()
 		{
-			if (ea == BRKVector && FlagBget() && NMI)
+			if (ea == BRKVector && /*FlagBget() &&*/ NMI)
 			{
 				NMI = false;
 				ea = NMIVector;
 			}
-			if (ea == IRQVector && !FlagBget() && NMI)
+			if (ea == IRQVector && /*!FlagBget() &&*/ NMI)
 			{
 				NMI = false;
 				ea = NMIVector;
@@ -1078,8 +797,6 @@ namespace SNESHawk
 
 		void ZP_WRITE_STX_F() { WriteMemory(opcode2, X); }
 
-		void ZP_WRITE_SAX_F() { WriteMemory(opcode2, (uint8_t)(X & A)); }
-
 		void ZP_WRITE_STZ_F() { WriteMemory(ea, 0); }
 
 
@@ -1089,7 +806,8 @@ namespace SNESHawk
 				| alu_temp;
 		}
 
-		void IndIdx_Stage3_F() { ea = ReadMemory(opcode2); }
+		void IndIdx_Stage3_F() {  }
+		void IndIdx_Stage3a_F() {  }
 
 		void IndIdx_Stage4_F()
 		{
@@ -1098,13 +816,14 @@ namespace SNESHawk
 				| ((alu_temp & 0xFF));
 		}
 
-		void IndIdx_WRITE_Stage5_F()
+		void IndIdx_Stage4a_F()
 		{
-			ReadMemory((uint16_t)ea);
-			ea += (alu_temp >> 8) << 8;
+			alu_temp = ea + Y;
+			ea = (ReadMemory((uint8_t)(opcode2 + 1)) << 8)
+				| ((alu_temp & 0xFF));
 		}
 
-		void IndIdx_READ_Stage5_F()
+		void IndIdx_Stage5_F()
 		{
 			if (!((alu_temp & 0x100) == 0x100))
 			{
@@ -1119,58 +838,50 @@ namespace SNESHawk
 			}
 		}
 
-		void IndIdx_RMW_Stage5_F()
+		void IndIdx_Stage5a_F()
 		{
-			ReadMemory((uint16_t)ea);
-			if (((alu_temp & 0x100) == 0x100))
-				ea = (uint16_t)(ea + 0x100);
-		}
-
-		void IndIdx_WRITE_Stage6_STA_F() { WriteMemory((uint16_t)ea, A); }
-
-		void IndIdx_WRITE_Stage6_SHA_F() { WriteMemory((uint16_t)ea, (uint8_t)(A & X & 7)); }
-
-		void IndIdx_READ_Stage6_LDA_F() { A = ReadMemory((uint16_t)ea); NZ_A_F(); }
-
-		void IndIdx_READ_Stage6_CMP_F() { alu_temp = ReadMemory((uint16_t)ea); _Cmp_F(); }
-
-		void IndIdx_READ_Stage6_AND_F() { alu_temp = ReadMemory((uint16_t)ea); _And_F(); }
-
-		void IndIdx_READ_Stage6_EOR_F() { alu_temp = ReadMemory((uint16_t)ea); _Eor_F(); }
-
-		void IndIdx_READ_Stage6_LAX_F() { A = X = ReadMemory((uint16_t)ea); NZ_A_F(); }
-
-		void IndIdx_READ_Stage6_ADC_F() { alu_temp = ReadMemory((uint16_t)ea); _Adc_F(); }
-
-		void IndIdx_READ_Stage6_SBC_F() { alu_temp = ReadMemory((uint16_t)ea); _Sbc_F(); }
-
-		void IndIdx_READ_Stage6_ORA_F() 
-		{ 
-			if (!FlagMget()) 
+			if (!((alu_temp & 0x100) == 0x100))
 			{
-				if (!second_byte_done) 
-				{
-					alu_temp = ReadMemory((uint16_t)ea);
-					ea = (ea & 0xFF0000) | ((uint16_t)(ea + 1));
-					mi--;
-					second_byte_done = true;
-				}
-				else 
-				{
-					alu_temp = ReadMemory((uint16_t)ea);
-					_Ora_F();
-				}
+				mi++;
+				ExecuteOneRetry();
+				return;
 			}
-			else 
+			else
 			{
-				alu_temp = ReadMemory((uint16_t)ea);
-				_Ora_F();
-			}			
+				ReadMemory((uint16_t)ea);
+				ea = (uint16_t)(ea + 0x100);
+			}
 		}
 
-		void IndIdx_RMW_Stage6_F() { alu_temp = ReadMemory((uint16_t)ea); }
+		void IndIdx_Stage5_STA_F()
+		{
+			if (!((alu_temp & 0x100) == 0x100))
+			{
+				mi++;
+				ExecuteOneRetry();
+				return;
+			}
+			else
+			{
+				ReadMemory((uint16_t)ea);
+				ea = (uint16_t)(ea + 0x100);
+			}
+		}
 
-		void IndIdx_RMW_Stage8_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
+		void IndIdx_Stage5_STAa_F()
+		{
+			if (!((alu_temp & 0x100) == 0x100))
+			{
+				mi++;
+				ExecuteOneRetry();
+				return;
+			}
+			else
+			{
+				ReadMemory((uint16_t)ea);
+				ea = (uint16_t)(ea + 0x100);
+			}
+		}
 
 		void RelBranch_Stage2_BVS_F()
 		{
@@ -1270,13 +981,25 @@ namespace SNESHawk
 
 		void NOP_F() { DummyReadMemory(PBR | PC); }
 
+		void MMT_F() { if (FlagMget()) { mi += 12; } }
+
+		void XYT_F() { if (FlagXget()) { mi += 12; } }
+
+		void CHP_F() {}
+
+		void CHE_F() {}
+
+		void CHS_F() {}
+
+		void SKP_F() { mi += 6; }
+
 		void DecS_F() { DummyReadMemory((uint16_t)(0x100 | --S)); }
 
 		void IncS_F() { DummyReadMemory((uint16_t)(0x100 | S++)); }
 
 		void JSR_F() { PC = (uint16_t)((ReadMemory((uint16_t)(PBR | PC)) << 8) + opcode2); }
 
-		void PullP_F() { P = ReadMemory((uint16_t)(S++ + 0x100)); FlagTset(true); }
+		void PullP_F() { P = ReadMemory((uint16_t)(S++ + 0x100)); /*FlagTset(true);*/ }
 
 		void PullPCL_F() { PC &= 0xFF00; PC |= ReadMemory((uint16_t)(S++ + 0x100)); }
 
@@ -1325,8 +1048,6 @@ namespace SNESHawk
 		void ZP_READ_LDY_F() { Y = ReadMemory(opcode2); NZ_Y_F(); }
 
 		void ZP_READ_LDX_F() { X = ReadMemory(opcode2); NZ_X_F(); }
-
-		void ZP_READ_LAX_F() { X = ReadMemory(opcode2); A = X; NZ_A_F(); }
 
 		void ZP_READ_CPY_F() { alu_temp = ReadMemory(opcode2); _Cpy_F(); }
 
@@ -1463,7 +1184,6 @@ namespace SNESHawk
 
 		void _Adc_F()
 		{
-			//TODO - an extra cycle penalty on 65C02 only
 			value8 = (uint8_t)alu_temp;
 			if (FlagDget() && BCD_Enabled)
 			{
@@ -1525,13 +1245,16 @@ namespace SNESHawk
 			{
 				if (EM)
 				{
-					alu_temp = (opcode2 + D + X) & 0xFF;
+					ea = (opcode2 + D + X) & 0xFF;
 				}
 				else
 				{
-					alu_temp = ((opcode2 + D + (X & XY_mask)) & 0xFFFF);
+					ea = ((opcode2 + D + (X & XY_mask)) & 0xFFFF);
 				}
-				mi++;
+
+				ea |= DBR;
+
+				mi += 12;
 			}
 
 			// if low byte of D not 0, add one cycle (the operation below)
@@ -1541,48 +1264,29 @@ namespace SNESHawk
 		{
 			if (EM)
 			{
-				alu_temp = (opcode2 + D + X) & 0xFF;
+				ea = (opcode2 + D + X) & 0xFF;
 			}
 			else
 			{
-				alu_temp = ((opcode2 + D + (X & XY_mask)) & 0xFFFF);
+				ea = ((opcode2 + D + (X & XY_mask)) & 0xFFFF);
 			}
+
+			ea |= DBR;
 		}
 
-		void IdxInd_Stage4_F() { ea = ReadMemory(DBR | alu_temp); }
+		void IdxInd_Stage4_F() { alu_temp = ReadMemory(ea); ea = (ea + 1) & 0xFFFF; ea |= DBR; }
 
-		void IdxInd_Stage5_F() { ea += (ReadMemory(DBR | (uint16_t)(alu_temp + 1)) << 8); }
+		void IdxInd_Stage5_F() { alu_temp += (ReadMemory(ea) << 8); ea = alu_temp; }
 
-		void IdxInd_Stage6_READ_LDA_F() { A = ReadMemory((uint16_t)ea); NZ_A_F(); }
+		void IdxInd_Stage6_READ_F() { alu_temp = ReadMemory((uint16_t)ea); ea = (ea + 1) & 0xFFFF; if (FlagMget()) { mi += 12; } }
 
-		void IdxInd_Stage6_READ_ORA_F() { alu_temp = ReadMemory((uint16_t)ea); _Ora_F(); }
+		void IdxInd_Stage6_READa_F() { alu_temp = ReadMemory((uint16_t)ea); }
 
-		void IdxInd_Stage6_READ_LAX_F() { A = X = ReadMemory((uint16_t)ea); NZ_A_F(); }
+		void IdxInd_Stage6_STA_F() { WriteMemory((uint16_t)ea, A); ea = (ea + 1) & 0xFFFF; if (FlagMget()) { mi += 12; } }
 
-		void IdxInd_Stage6_READ_CMP_F() { alu_temp = ReadMemory((uint16_t)ea); _Cmp_F(); }
+		void IdxInd_Stage6_STAa_F() { WriteMemory((uint16_t)ea, (uint8_t)(A >> 8)); }
 
-		void IdxInd_Stage6_READ_ADC_F() { alu_temp = ReadMemory((uint16_t)ea); _Adc_F(); }
-
-		void IdxInd_Stage6_READ_AND_F() { alu_temp = ReadMemory((uint16_t)ea); _And_F(); }
-
-		void IdxInd_Stage6_READ_EOR_F() { alu_temp = ReadMemory((uint16_t)ea); _Eor_F(); }
-
-		void IdxInd_Stage6_READ_SBC_F() { alu_temp = ReadMemory((uint16_t)ea); _Sbc_F(); }
-
-		void IdxInd_Stage6_WRITE_STA_F() { WriteMemory((uint16_t)ea, A); }
-
-		void IdxInd_Stage6_WRITE_SAX_F()
-		{
-			alu_temp = A & X;
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			//flag writing skipped on purpose
-		}
-
-		void IdxInd_Stage6_RMW_F() { alu_temp = ReadMemory((uint16_t)ea); }
-
-		void IdxInd_Stage8_RMW_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
-
-		void PushP_F() { FlagBset(true); WriteMemory((uint16_t)(S-- + 0x100), P); }
+		void PushP_F() { /*FlagBset(true);*/ WriteMemory((uint16_t)(S-- + 0x100), P); }
 
 		void PushA_F() { WriteMemory((uint16_t)(S-- + 0x100), A); }
 
@@ -1594,7 +1298,7 @@ namespace SNESHawk
 			P = ReadMemory((uint16_t)(S + 0x100));
 			iflag_pending = FlagIget();
 			FlagIset(my_iflag);
-			FlagTset(true); //force T always to remain true
+			//FlagTset(true); //force T always to remain true
 		}
 
 		void Imp_ASL_A_F()
@@ -1910,6 +1614,70 @@ namespace SNESHawk
 
 		void End_F()
 		{
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_LDA_F()
+		{
+			A = alu_temp;
+			NZ_A_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_ORA_F() 
+		{
+			_Ora_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_CMP_F()
+		{
+			_Cmp_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_ADC_F()
+		{
+			_Adc_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_AND_F()
+		{
+			_And_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_EOR_F()
+		{
+			_Eor_F();
+			opcode = VOP_Fetch1;
+			mi = 0;
+			iflag_pending = FlagIget();
+			ExecuteOneRetry();
+		}
+
+		void End_SBC_F()
+		{
+			_Sbc_F();
 			opcode = VOP_Fetch1;
 			mi = 0;
 			iflag_pending = FlagIget();
@@ -2626,6 +2394,480 @@ namespace SNESHawk
 
 			return loader;
 		}
+
+		#pragma endregion
+
+		#pragma region Instruction Table Building
+
+		/*
+{
+	//0x00
+	// 0x00
+	// 0x01
+	// 0x02
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ORA,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d,s
+	Fetch2,					DirectEA_RD,		TSB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB d
+	Fetch2,					ZP_READ_ORA,		End ,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ASL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA [d]
+	// 0x08
+	Imm_ORA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA #
+	Imp_ASL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL A
+	// 0x0B
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB a
+	Fetch2,					Fetch3,				Abs_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ASL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA al
+	//0x10
+	RelBranch_Stage2_BPL,	End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BPL r
+	// 0x11
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ORA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA (d,s),y
+	Fetch2,					DirectEA_RD,		TRB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB d
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ORA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA [d],y
+	Imp_CLC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLC i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC A
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCS i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB a
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ORA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ORA al,x
+	//0x20
+	Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR a
+	// 0x21
+	Fetch2,					Fetch3,				PushPBR,				NOP,						Fetch4,						PushPCH,					PushPCL,					JSL,		NOP,		NOP,		NOP,		NOP,	// JSL al
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_AND,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d,s
+	Fetch2,					ZP_READ_BIT,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT d
+	Fetch2,					ZP_READ_AND,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND [d]
+	FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLP s
+	Imm_AND,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND #
+	Imp_ROL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL A
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLD s
+	Fetch2,					Fetch3,				Abs_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT a
+	Fetch2,					Fetch3,				Abs_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND al
+	//0x30,
+	RelBranch_Stage2_BMI,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BMI r
+	// 0x31
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_AND,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND (d,s),y
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_BIT,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_AND,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND [d],y
+	Imp_SEC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEC i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC A
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSC i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_AND,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// AND al,x
+	//0x40,
+	FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTI s
+	// 0x41
+	Fetch2,					End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WDM
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_EOR,	End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d,s
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVP xyc
+	Fetch2,					ZP_READ_EOR,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_LSR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR [d]
+	// 0x48
+	Imm_EOR,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR #
+	Imp_LSR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR A
+	// 0x4B
+	Fetch2,					JMP_abs,			End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP a
+	Fetch2,					Fetch3,				Abs_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_LSR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR al
+	//0x50,
+	RelBranch_Stage2_BVC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVC r
+	// 0x51
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_EOR,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR (d,s),y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVN xyc
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_EOR,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR [d],y
+	Imp_CLI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLI i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a,y
+	// 0x5A
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCD i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP al
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_EOR,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_LSR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// EOR al,x
+	//0x60,
+	FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTS s
+	// 0x61
+	Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PER s
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_ADC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d,s
+	Fetch2,					ZP_WRITE_STZ,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ d
+	Fetch2,					ZP_READ_ADC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC [d]
+	FetchDummy,				IncS,				PullA_NoInc,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLA s
+	Imm_ADC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC #
+	Imp_ROR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR A
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTL s
+	Fetch2,					Fetch3,				AbsInd_JMP_Stage4,		AbsInd_JMP_Stage5,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a)
+	Fetch2,					Fetch3,				Abs_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC al
+	//0x70,
+	RelBranch_Stage2_BVS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVS r
+	// 0x71
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_ADC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC (d,s),y
+	Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STZ,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_ADC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC [d],y
+	Imp_SEI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEI i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLY s
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TDC i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_ADC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a,x]
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ADC al,x
+	//0x80,
+	RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRA r
+	// 0x81
+	Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRL rl
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_STA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d,s
+	Fetch2,					ZP_WRITE_STY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY d
+	Fetch2,					ZP_WRITE_STA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d
+	Fetch2,					ZP_WRITE_STX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA [d]
+	Imp_DEY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEY i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BIT #
+	Imp_TXA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXA i
+	// 0x8B
+	Fetch2,					Fetch3,				Abs_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY a
+	Fetch2,					Fetch3,				Abs_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a
+	Fetch2,					Fetch3,				Abs_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA al
+	//0x90,
+	RelBranch_Stage2_BCC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCC r
+	// 0x91
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_STA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_STA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA (d,s),y
+	Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STY d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA d,x
+	Fetch2,					ZpIdx_Stage3_Y,		ZP_WRITE_STX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STX d,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA [d],y
+	Imp_TYA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYA i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a,y
+	Imp_TXS,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXS i
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXY i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ a
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_WRITE_Stage5_STA,	End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STA al,x
+	//0xA0,
+	Imm_LDY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY #
+	// 0xA1
+	Imm_LDX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX #
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_LDA, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d,s
+	Fetch2,					ZP_READ_LDY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY d
+	Fetch2,					ZP_READ_LDA,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d
+	Fetch2,					ZP_READ_LDX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d]
+	Imp_TAY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAY i
+	Imm_LDA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA #
+	Imp_TAX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAX i
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLB s
+	Fetch2,					Fetch3,				Abs_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY a
+	Fetch2,					Fetch3,				Abs_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a
+	Fetch2,					Fetch3,				Abs_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA al
+	//0xB0,
+	RelBranch_Stage2_BCS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCS r
+	// 0xB1
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_LDA,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d,s),y
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_LDA,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA d,x
+	Fetch2,					ZpIdx_Stage3_Y,		ZP_READ_LDX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX d,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA [d],y
+	Imp_CLV,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLV i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a,y
+	Imp_TSX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSX i
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYX i
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDY,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDY a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDA,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA a,x
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_LDX,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDX a,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LDA al,x
+	//0xC0,
+	Imm_CPY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY #
+	// 0xC1
+	Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// REP #
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_CMP, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d,s
+	Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY d
+	Fetch2,					ZP_READ_CMP,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP [d]
+	Imp_INY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INY i
+	Imm_CMP,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP #
+	Imp_DEX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEX i
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WAI i
+	Fetch2,					Fetch3,				Abs_READ_CPY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY a
+	Fetch2,					Fetch3,				Abs_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_DEC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP al
+	//0xD0,
+	RelBranch_Stage2_BNE,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BNE r
+	// 0xD1
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_CMP,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP (d,s),y
+	Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEI s
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_CMP,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP [d],y
+	Imp_CLD,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLD i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a,y
+	// 0xDA
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STP i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JML (a)
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_CMP,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DEC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CMP al,x
+	//0xE0,
+	Imm_CPX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX #
+	Fetch2,					IdxInd_Stage3,		IdxInd_Stage3a,			IdxInd_Stage4,				IdxInd_Stage5,				IdxInd_Stage6_READ_SBC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d,x)
+	Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEP #
+	Fetch2,					StackEA_1,			IndIdx_READ_Stage6_SBC, End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d,s
+	Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX d
+	Fetch2,					ZP_READ_SBC,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d
+	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC [d]
+	Imp_INX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INX i
+	Imm_SBC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC #
+	FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// NOP i
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XBA i
+	Fetch2,					Fetch3,				Abs_READ_CPX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX a
+	Fetch2,					Fetch3,				Abs_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a
+	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_INC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC al
+	//0xF0,
+	RelBranch_Stage2_BEQ,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BEQ r
+	// 0xF1
+	Fetch2,					IndIdx_Stage3,		Ind_zp_Stage4,			IndIdx_READ_Stage6_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d)
+	Fetch2,					StackEA_1,			NOP,					StackEA_2,					NOP,						IndIdx_READ_Stage6_SBC,		End,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC (d,s),y
+	Fetch2,					Fetch3,				PushPERH,				PushPERL,					End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEA s
+	Fetch2,					ZpIdx_Stage3_X,		ZP_READ_SBC,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC d,x
+	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC [d],y
+	Imp_SED,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SED i
+	Fetch2,					AbsIdx_Stage3_Y,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a,y
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLX s
+	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XCE i
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_READ_Stage4,		AbsIdx_READ_Stage5_SBC,		End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC a,x
+	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_INC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a,x
+	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SBC al,x
+	//0x100,
+	Fetch1,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1
+	RelBranch_Stage3,		End_BranchSpecial,	NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff
+	RelBranch_Stage4,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff2
+	End_NoInt,				NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff3
+	//i assume these are dummy fetches.... maybe theyre just nops? supposedly these take 7 cycles so that's the only way i can make sense of it,
+	//one of them might be the next instruction's fetch,		and whatever fetch follows it.
+	//the interrupt would then take place if necessary,		using a cached PC. but im not so sure about that.
+	FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_NMI,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_NMI
+	FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_IRQ,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_IRQ
+	FetchDummy,				FetchDummy,			PushDummy,				PushDummy,					PushP_Reset,				FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_RESET
+	Fetch1_Real,			NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1_NoInterrupt
+
+};
+*/
+
+		void build_instruction_table()
+		{
+			// fill with nops first
+			for (int i = 0; i < ((256 + 8) * 12 * 12); i++)
+			{
+				Microcode[i] = NOP;
+			}
+
+			// instructions are broken up according to their memory access method
+			// see the w65c816s data sheet
+			build_stack_instructions();
+			build_diix_instructions();
+			build_diiy_instructions();
+
+
+		}
+
+		void build_stack_instructions()
+		{
+			op = 0x00; // BRK
+			Uop temp_BRK_COP[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, Fetch2,				NOP,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					PushPBR_BRK,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					PushPCH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					PushPCL,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					PushP_BRK,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, FetchPCLVector,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, FetchPCHVector,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, End_NoInt,			NOP
+			};
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_BRK_COP[i]; }
+
+			op = 0x02; // COP
+			temp_BRK_COP[4 * 12 + 11] = PushP_COP;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_BRK_COP[i]; }
+
+			op = 0x08; // PHP
+			Uop temp_PHv[3 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, FetchDummy,		NOP,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,				PushP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, End,				NOP
+			};
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHv[i]; }
+
+			op = 0x48; // PHA
+			temp_PHv[1 * 12 + 11] = PushA;
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHv[i]; }
+
+			op = 0x4B; // PHK
+			temp_PHv[1 * 12 + 11] = PushK;
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHv[i]; }
+
+			op = 0x8B; // PHB
+			temp_PHv[1 * 12 + 11] = PushB;
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHv[i]; }
+
+			op = 0x0B; // PHD
+			Uop temp_PHvl[4 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, FetchDummy,		NOP,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,				PushDH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,				PushDL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, End,				NOP
+			};
+			for (int i = 0; i < 4 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHvl[i]; }
+
+			// X and Y regs may be only 8 bits, so add in a check
+			temp_PHvl[1 * 12] = XYT;
+
+			op = 0x5A; // PHY		
+			temp_PHvl[1 * 12 + 11] = PushYH; temp_PHvl[2 * 12 + 11] = PushYL;
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHvl[i]; }
+
+			op = 0x0B; // PHX		
+			temp_PHvl[1 * 12 + 11] = PushXH; temp_PHvl[2 * 12 + 11] = PushXL;
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PHvl[i]; }
+		}
+
+		// 'direct indexed indirect' (d,x)
+		void build_diix_instructions() 
+		{
+			op = 0x01; // ORA
+			Uop temp_DIIX[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, Fetch2,				NOP,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					IdxInd_Stage3,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,					IdxInd_Stage3a,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IdxInd_Stage4,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IdxInd_Stage5,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IdxInd_Stage6_READ,	NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IdxInd_Stage6_READa,	NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, End_ORA,				NOP
+			};
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0x21; // AND
+			temp_DIIX[7 * 12 + 10] = End_AND;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0x41; // EOR
+			temp_DIIX[7 * 12 + 10] = End_EOR;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0x61; // ADC
+			temp_DIIX[7 * 12 + 10] = End_ADC;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0xA1; // LDA
+			temp_DIIX[7 * 12 + 10] = End_LDA;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0xC1; // CMP
+			temp_DIIX[7 * 12 + 10] = End_CMP;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			op = 0xE1; // SBC
+			temp_DIIX[7 * 12 + 10] = End_SBC;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+
+			// need to change the reads to writes for STA
+			op = 0x81; // STA
+			temp_DIIX[5 * 12 + 10] = IdxInd_Stage6_STA;
+			temp_DIIX[6 * 12 + 10] = IdxInd_Stage6_STAa;
+			temp_DIIX[7 * 12 + 10] = End;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIX[i]; }
+		}
+
+		// 'direct indirect indexed' (d),y
+		void build_diiy_instructions()
+		{
+			op = 0x11; // ORA
+			Uop temp_DIIY[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, Fetch2,				NOP,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage3,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage3a,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage4,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage4a,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage5,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, IndIdx_Stage5a,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, End_ORA,				NOP
+			};
+
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0x31; // AND
+			temp_DIIY[7 * 12 + 10] = End_AND;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0x51; // EOR
+			temp_DIIY[7 * 12 + 10] = End_EOR;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0x71; // ADC
+			temp_DIIY[7 * 12 + 10] = End_ADC;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0xB1; // LDA
+			temp_DIIY[7 * 12 + 10] = End_LDA;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0xD1; // CMP
+			temp_DIIY[7 * 12 + 10] = End_CMP;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			op = 0xF1; // SBC
+			temp_DIIY[7 * 12 + 10] = End_SBC;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+
+			// need to change the reads to writes for STA
+			op = 0x91; // STA
+			temp_DIIY[5 * 12 + 10] = IndIdx_Stage5_STA;
+			temp_DIIY[6 * 12 + 10] = IndIdx_Stage5_STAa;
+			temp_DIIY[7 * 12 + 10] = End;
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_DIIY[i]; }
+		}
+
 
 		#pragma endregion
 	};
