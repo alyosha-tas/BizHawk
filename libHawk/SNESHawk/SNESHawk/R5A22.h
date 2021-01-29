@@ -192,6 +192,7 @@ namespace SNESHawk
 			Imp_SEC, Imp_CLI, Imp_SEI, Imp_CLD, Imp_CLC, Imp_CLV, Imp_SED,
 			Imp_INY, Imp_DEY, Imp_INX, Imp_DEX,
 			Imp_TSX, Imp_TXS, Imp_TAX, Imp_TAY, Imp_TYA, Imp_TXA,
+			Imp_TCS, Imp_TSC, Imp_TCD, Imp_TDC, Imp_TXY, Imp_TYX, Imp_NOP, Imp_XCE,
 
 			//sub-ops
 			NZ_X, NZ_Y, NZ_A,
@@ -368,6 +369,14 @@ namespace SNESHawk
 			case Imp_SED: Imp_SED_F(); break;
 			case Imp_CLD: Imp_CLD_F(); break;
 			case Imp_CLV: Imp_CLV_F(); break;
+			case Imp_TCS: Imp_TCS_F(); break;
+			case Imp_TSC: Imp_TSC_F(); break;
+			case Imp_TCD: Imp_TCD_F(); break;
+			case Imp_TDC: Imp_TDC_F(); break;
+			case Imp_TXY: Imp_TXY_F(); break;
+			case Imp_TYX: Imp_TYX_F(); break;
+			case Imp_NOP: Imp_NOP_F(); break;
+			case Imp_XCE: Imp_XCE_F(); break;
 			case IndIdx_Stage3: IndIdx_Stage3_F(); break;
 			case IndIdx_Stage3a: IndIdx_Stage3a_F(); break;
 			case IndIdx_Stage4: IndIdx_Stage4_F(); break;
@@ -789,6 +798,22 @@ namespace SNESHawk
 		void Imp_CLD_F() { DummyReadMemory(PBR | PC); FlagDset(false); }
 
 		void Imp_CLV_F() { DummyReadMemory(PBR | PC); FlagVset(false); }
+
+		void Imp_TCS_F() {}
+
+		void Imp_TSC_F() {}
+
+		void Imp_TCD_F() {}
+
+		void Imp_TDC_F() {}
+
+		void Imp_TXY_F() {}
+
+		void Imp_TYX_F() {}
+
+		void Imp_NOP_F() {}
+
+		void Imp_XCE_F() {}
 
 		void IndIdx_Stage3_F() {  }
 		void IndIdx_Stage3a_F() {  }
@@ -2324,10 +2349,10 @@ namespace SNESHawk
 	// 0x15
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d,x
 	// 0x17
-	Imp_CLC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLC i
+	// 0x18
 	// 0x19
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC A
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCS i
+	// 0x1B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB a
 	// 0x1D
 	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a,x
@@ -2358,10 +2383,10 @@ namespace SNESHawk
 	// 0x35
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d,x
 	// 0x37
-	Imp_SEC,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEC i
+	// 0x38
 	// 0x39
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC A
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSC i
+	// 0x3A
 	// 0x3C
 	// 0x3D
 	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a,x
@@ -2392,10 +2417,10 @@ namespace SNESHawk
 	// 0x55
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d,x
 	// 0x57
-	Imp_CLI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLI i
+	// 0x58
 	// 0x59
 	// 0x5A
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TCD i
+	// 0x5B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP al
 	// 0x5D
 	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_LSR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a,x
@@ -2422,14 +2447,14 @@ namespace SNESHawk
 	// 0x71
 	// 0x72
 	// 0x73
-	Fetch2,					ZpIdx_Stage3_X,		ZP_WRITE_STZ,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STZ d,x
+	// 0x74
 	// 0x75
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d,x
 	// 0x77
-	Imp_SEI,				End_ISpecial,		NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEI i
+	// 0x78
 	// 0x79
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLY s
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TDC i
+	// 0x7B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
 	// 0x7D
 	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a,x]
@@ -2443,9 +2468,9 @@ namespace SNESHawk
 	// 0x85
 	// 0x86
 	// 0x87
-	Imp_DEY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEY i
+	// 0x88
 	// 0x89
-	Imp_TXA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXA i
+	// 0x8A
 	// 0x8B
 	// 0x8C
 	// 0x8D
@@ -2460,10 +2485,10 @@ namespace SNESHawk
 	// 0x95
 	// 0x96
 	// 0x97
-	Imp_TYA,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYA i
+	// 0x98
 	// 0x99
-	Imp_TXS,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXS i
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TXY i
+	// 0x9A
+	// 0x9B
 	// 0x9C
 	// 0x9D
 	// 0x9E
@@ -2477,9 +2502,9 @@ namespace SNESHawk
 	// 0xA5
 	// 0xA6
 	// 0xA7
-	Imp_TAY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAY i
+	// 0xA8
 	// 0xA9
-	Imp_TAX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TAX i
+	// 0xAA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLB s
 	// 0xAC
 	// 0xAD
@@ -2494,10 +2519,10 @@ namespace SNESHawk
 	// 0xB5
 	// 0xB6
 	// 0xB7
-	Imp_CLV,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLV i
+	// 0xB8
 	// 0xB9
-	Imp_TSX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSX i
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TYX i
+	// 0xBA
+	// 0xBB
 	// 0xBC
 	// 0xBD
 	// 0xBE
@@ -2507,13 +2532,13 @@ namespace SNESHawk
 	// 0xC1
 	Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// REP #
 	// 0xC3
-	Fetch2,					ZP_READ_CPY,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY d
+	// 0xC4
 	// 0xC5
 	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d
 	// 0xC7
-	Imp_INY,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INY i
+	// 0xC8
 	// 0xC9
-	Imp_DEX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEX i
+	// 0xCA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WAI i
 	Fetch2,					Fetch3,				Abs_READ_CPY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY a
 	// 0xCD
@@ -2528,7 +2553,7 @@ namespace SNESHawk
 	// 0xD5
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d,x
 	// 0xD7
-	Imp_CLD,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CLD i
+	// 0xD8
 	// 0xD9
 	// 0xDA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STP i
@@ -2541,13 +2566,13 @@ namespace SNESHawk
 	// 0xE1
 	Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEP #
 	// 0xE3
-	Fetch2,					ZP_READ_CPX,		End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX d
+	// 0xE4
 	// 0xE5
 	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d
 	// 0xE7
-	Imp_INX,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INX i
+	// 0xE8
 	// 0xE9
-	FetchDummy,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// NOP i
+	// 0xEA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XBA i
 	Fetch2,					Fetch3,				Abs_READ_CPX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX a
 	// 0xED
@@ -2562,10 +2587,10 @@ namespace SNESHawk
 	// 0xF5
 	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d,x
 	// 0xF7
-	Imp_SED,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SED i
+	// 0xF8
 	// 0xF9
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLX s
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XCE i
+	// 0xFB
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
 	// 0xFD
 	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_INC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a,x
@@ -2611,6 +2636,7 @@ namespace SNESHawk
 			build_a_instructions();
 			build_al_instructions();
 			build_alx_instructions();
+			build_i_instructions();
 
 		}
 
@@ -2873,6 +2899,8 @@ namespace SNESHawk
 			assemble_instruction(0xE5, End_SBC, replace_position, &temp_D[0]); // SBC
 			assemble_instruction(0xA4, End_LDY, replace_position, &temp_D[0]); // LDY
 			assemble_instruction(0xA6, End_LDX, replace_position, &temp_D[0]); // LDX
+			assemble_instruction(0xC4, End_CPY, replace_position, &temp_D[0]); // CPY
+			assemble_instruction(0xE4, End_CPX, replace_position, &temp_D[0]); // CPX
 			assemble_instruction(0x24, End_BIT, replace_position, &temp_D[0]); // BIT
 
 			// need to change the reads to writes for STA
@@ -3196,6 +3224,48 @@ namespace SNESHawk
 			temp_ALX[4 * 12 + 11] = Absl_STAa;
 
 			assemble_instruction(0x9F, End, replace_position, &temp_ALX[0]); // STA
+		}
+
+		// 'implied' i
+		void build_i_instructions()
+		{
+			Uop temp_I[2 * 12] =
+			{
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Imp_CLC,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 2;
+			int replace_position = 11;
+
+			assemble_instruction(0x18, Imp_CLC, replace_position, &temp_I[0]); // CLC
+			assemble_instruction(0x1B, Imp_TCS, replace_position, &temp_I[0]); // TCS
+			assemble_instruction(0x38, Imp_SEC, replace_position, &temp_I[0]); // SEC
+			assemble_instruction(0x3B, Imp_TSC, replace_position, &temp_I[0]); // TSC		
+			assemble_instruction(0x5B, Imp_TCD, replace_position, &temp_I[0]); // TCD			
+			assemble_instruction(0x7B, Imp_TDC, replace_position, &temp_I[0]); // TDC
+			assemble_instruction(0x88, Imp_DEY, replace_position, &temp_I[0]); // DEY
+			assemble_instruction(0x8A, Imp_TXA, replace_position, &temp_I[0]); // TXA
+			assemble_instruction(0x98, Imp_TYA, replace_position, &temp_I[0]); // TYA
+			assemble_instruction(0x9A, Imp_TXS, replace_position, &temp_I[0]); // TXS
+			assemble_instruction(0x9B, Imp_TXY, replace_position, &temp_I[0]); // TXY
+			assemble_instruction(0xA8, Imp_TAY, replace_position, &temp_I[0]); // TAY
+			assemble_instruction(0xAA, Imp_TAX, replace_position, &temp_I[0]); // TAX
+			assemble_instruction(0xB8, Imp_CLV, replace_position, &temp_I[0]); // CLV
+			assemble_instruction(0xBA, Imp_TSX, replace_position, &temp_I[0]); // TSX
+			assemble_instruction(0xBB, Imp_TYX, replace_position, &temp_I[0]); // TYX
+			assemble_instruction(0xC8, Imp_INY, replace_position, &temp_I[0]); // INY
+			assemble_instruction(0xCA, Imp_DEX, replace_position, &temp_I[0]); // DEX
+			assemble_instruction(0xD8, Imp_CLD, replace_position, &temp_I[0]); // CLD
+			assemble_instruction(0xE8, Imp_INX, replace_position, &temp_I[0]); // INX
+			assemble_instruction(0xEA, Imp_NOP, replace_position, &temp_I[0]); // NOP
+			assemble_instruction(0xF8, Imp_SED, replace_position, &temp_I[0]); // SED
+			assemble_instruction(0xFB, Imp_XCE, replace_position, &temp_I[0]); // XCE
+
+			// special end condition
+			temp_I[1 * 12 + 11] = End_ISpecial;
+
+			assemble_instruction(0x58, Imp_CLI, replace_position, &temp_I[0]); // CLI
+			assemble_instruction(0x78, Imp_SEI, replace_position, &temp_I[0]); // SEI
 		}
 
 		void assemble_instruction(int op, Uop to_be_replaced, int position, Uop *temp_array) 
