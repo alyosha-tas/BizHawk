@@ -100,8 +100,12 @@ namespace SNESHawk
 			// check memory access time
 			CHP, CHE, CHS, SKP,
 
+			// branch taken
+			BRT,
+
 			// basic operations
 			End_LDA, End_LDX, End_LDY, End_ORA, End_CMP, End_CPX, End_CPY, End_ADC, End_AND, End_EOR, End_SBC, End_BIT,
+			op_ASL, op_ROL, op_LSR, op_ROR, op_DEC, op_INC,
 
 			// basic read and write operations
 			DBR_EA_READ, DBR_EA_READa,
@@ -109,13 +113,10 @@ namespace SNESHawk
 			DBR_EA_STY, DBR_EA_STYa,
 			DBR_EA_STX, DBR_EA_STXa,
 			DBR_EA_STZ, DBR_EA_STZa,
+			DBR_EA_STU, DBR_EA_STUa,
 
 			JSR,
 			IncPC, //from RTS
-
-			//[absolute RMW]
-			Abs_RMW_Stage4, Abs_RMW_Stage6,
-			Abs_RMW_Stage5_INC, Abs_RMW_Stage5_DEC, Abs_RMW_Stage5_LSR, Abs_RMW_Stage5_ROL, Abs_RMW_Stage5_ASL, Abs_RMW_Stage5_ROR,
 
 			//[absolute JUMP]
 			JMP_abs, JSL,
@@ -123,20 +124,13 @@ namespace SNESHawk
 			//[long absolute BR]
 			BRL,
 
-			//[zero page misc]
-			ZpIdx_Stage3_X,
-			ZpIdx_RMW_Stage4, ZpIdx_RMW_Stage6,
-
-			//[zero page RMW]
-			ZP_RMW_Stage3, ZP_RMW_Stage5,
-			ZP_RMW_DEC, ZP_RMW_INC, ZP_RMW_ASL, ZP_RMW_LSR, ZP_RMW_ROR, ZP_RMW_ROL,
-
 			// d
 			dir_READ, dir_READa,
 			dir_STA, dir_STAa,
 			dir_STX, dir_STXa,
 			dir_STY, dir_STYa,
 			dir_STZ, dir_STZa,
+			dir_STU, dir_STUa,
 
 			// (d,x)
 			IdxInd_Stage3, IdxInd_Stage3a, IdxInd_Stage4, IdxInd_Stage5,
@@ -175,12 +169,6 @@ namespace SNESHawk
 			Absl_READ, Absl_READa,
 			Absl_STA, Absl_STAa,
 
-			//[absolute indexed]
-			AbsIdx_Stage3_X, AbsIdx_Stage4,
-			//[absolute indexed RMW]
-			AbsIdx_RMW_Stage5, AbsIdx_RMW_Stage7,
-			AbsIdx_RMW_Stage6_ROR, AbsIdx_RMW_Stage6_DEC, AbsIdx_RMW_Stage6_INC, AbsIdx_RMW_Stage6_ASL, AbsIdx_RMW_Stage6_LSR, AbsIdx_RMW_Stage6_ROL,
-
 			IncS, DecS,
 			PushPCL, PushPCH, PushPBR, PushPBR_BRK, PushPERH, PushPERL, PushP, PullP, PullPCL, PullPCH_NoInc, PullA_NoInc, PullP_NoInc,
 			PushA, PushB, PushK, PushDH, PushDL, PushYH, PushYL, PushXH, PushXL,
@@ -188,7 +176,7 @@ namespace SNESHawk
 			FetchPCLVector, FetchPCHVector, //todo - may not need these ?? can reuse fetch2 and fetch3?
 
 			//[implied] and [accumulator]
-			Imp_ASL_A, Imp_ROL_A, Imp_ROR_A, Imp_LSR_A,
+			Imp_ASL_A, Imp_ROL_A, Imp_ROR_A, Imp_LSR_A, Imp_INC_A, Imp_DEC_A,
 			Imp_SEC, Imp_CLI, Imp_SEI, Imp_CLD, Imp_CLC, Imp_CLV, Imp_SED,
 			Imp_INY, Imp_DEY, Imp_INX, Imp_DEX,
 			Imp_TSX, Imp_TXS, Imp_TAX, Imp_TAY, Imp_TYA, Imp_TXA,
@@ -196,7 +184,7 @@ namespace SNESHawk
 
 			//sub-ops
 			NZ_X, NZ_Y, NZ_A,
-			RelBranch_Stage2_BNE, RelBranch_Stage2_BPL, RelBranch_Stage2_BCC, RelBranch_Stage2_BCS, RelBranch_Stage2_BEQ, RelBranch_Stage2_BMI, RelBranch_Stage2_BVC, RelBranch_Stage2_BVS, RelBranch_Stage2_A,
+			RelBranch_Stage2_BNE, RelBranch_Stage2_BPL, RelBranch_Stage2_BCC, RelBranch_Stage2_BCS, RelBranch_Stage2_BEQ, RelBranch_Stage2_BMI, RelBranch_Stage2_BVC, RelBranch_Stage2_BVS, RelBranch_Stage2_BRA,
 			RelBranch_Stage2, RelBranch_Stage3, RelBranch_Stage4,
 			_Eor, _Bit, _Cpx, _Cpy, _Cmp, _Adc, _Sbc, _Ora, _And, _Anc, _Asr, _Arr, _Axs, //alu-related sub-ops
 
@@ -400,7 +388,7 @@ namespace SNESHawk
 			case RelBranch_Stage2_BCC: RelBranch_Stage2_BCC_F(); break;
 			case RelBranch_Stage2_BEQ: RelBranch_Stage2_BEQ_F(); break;
 			case RelBranch_Stage2_BNE: RelBranch_Stage2_BNE_F(); break;
-			case RelBranch_Stage2_A: RelBranch_Stage2_A_F(); break;
+			case RelBranch_Stage2_BRA: RelBranch_Stage2_BRA_F(); break;
 			case RelBranch_Stage2: RelBranch_Stage2_F(); break;
 			case RelBranch_Stage3: RelBranch_Stage3_F(); break;
 			case RelBranch_Stage4: RelBranch_Stage4_F(); break;
@@ -411,15 +399,13 @@ namespace SNESHawk
 			case CHE: CHE_F(); break;
 			case CHS: CHS_F(); break;
 			case SKP: SKP_F(); break;
+			case BRT: BRT_F(); break;
 			case DecS: DecS_F(); break;
 			case IncS: IncS_F(); break;
 			case JSR: JSR_F(); break;
 			case PullP: PullP_F(); break;
 			case PullPCL: PullPCL_F(); break;
 			case PullPCH_NoInc: PullPCH_NoInc_F(); break;
-			case ZpIdx_Stage3_X: ZpIdx_Stage3_X_F(); break;
-			case ZpIdx_RMW_Stage4: ZpIdx_RMW_Stage4_F(); break;
-			case ZpIdx_RMW_Stage6: ZpIdx_RMW_Stage6_F(); break;
 			case dir_READ: dir_READ_F();
 			case dir_READa: dir_READa_F();
 			case dir_STA: dir_STA_F();
@@ -430,6 +416,8 @@ namespace SNESHawk
 			case dir_STYa: dir_STYa_F();
 			case dir_STZ: dir_STZ_F();
 			case dir_STZa: dir_STZa_F();
+			case dir_STU: dir_STU_F();
+			case dir_STUa: dir_STUa_F();
 			case _Cpx: _Cpx_F(); break;
 			case _Cpy: _Cpy_F(); break;
 			case _Cmp: _Cmp_F(); break;
@@ -458,38 +446,14 @@ namespace SNESHawk
 			case Imp_ROL_A: Imp_ROL_A_F(); break;
 			case Imp_ROR_A: Imp_ROR_A_F(); break;
 			case Imp_LSR_A: Imp_LSR_A_F(); break;
+			case Imp_INC_A: Imp_INC_A_F(); break;
+			case Imp_DEC_A: Imp_DEC_A_F(); break;
 			case JMP_abs: JMP_abs_F(); break;
 			case JSL: JSL_F(); break;
 			case BRL: BRL_F(); break;
 			case IncPC: IncPC_F(); break;
-			case ZP_RMW_Stage3: ZP_RMW_Stage3_F(); break;
-			case ZP_RMW_Stage5: ZP_RMW_Stage5_F(); break;
-			case ZP_RMW_INC: ZP_RMW_INC_F(); break;
-			case ZP_RMW_DEC: ZP_RMW_DEC_F(); break;
-			case ZP_RMW_ASL: ZP_RMW_ASL_F(); break;
-			case ZP_RMW_LSR: ZP_RMW_LSR_F(); break;
-			case ZP_RMW_ROR: ZP_RMW_ROR_F(); break;
-			case ZP_RMW_ROL: ZP_RMW_ROL_F(); break;
-			case AbsIdx_Stage3_X: AbsIdx_Stage3_X_F(); break;
-			case AbsIdx_Stage4: AbsIdx_Stage4_F(); break;
-			case AbsIdx_RMW_Stage5: AbsIdx_RMW_Stage5_F(); break;
-			case AbsIdx_RMW_Stage7: AbsIdx_RMW_Stage7_F(); break;
-			case AbsIdx_RMW_Stage6_DEC: AbsIdx_RMW_Stage6_DEC_F(); break;
-			case AbsIdx_RMW_Stage6_INC: AbsIdx_RMW_Stage6_INC_F(); break;
-			case AbsIdx_RMW_Stage6_ROL: AbsIdx_RMW_Stage6_ROL_F(); break;
-			case AbsIdx_RMW_Stage6_LSR: AbsIdx_RMW_Stage6_LSR_F(); break;
-			case AbsIdx_RMW_Stage6_ASL: AbsIdx_RMW_Stage6_ASL_F(); break;
-			case AbsIdx_RMW_Stage6_ROR: AbsIdx_RMW_Stage6_ROR_F(); break;
 			case AbsInd_JMP_Stage4: AbsInd_JMP_Stage4_F(); break;
 			case AbsInd_JMP_Stage5: AbsInd_JMP_Stage5_F(); break;
-			case Abs_RMW_Stage4: Abs_RMW_Stage4_F(); break;
-			case Abs_RMW_Stage5_INC: Abs_RMW_Stage5_INC_F(); break;
-			case Abs_RMW_Stage5_DEC: Abs_RMW_Stage5_DEC_F(); break;
-			case Abs_RMW_Stage5_ASL: Abs_RMW_Stage5_ASL_F(); break;
-			case Abs_RMW_Stage5_ROR: Abs_RMW_Stage5_ROR_F(); break;
-			case Abs_RMW_Stage5_ROL: Abs_RMW_Stage5_ROL_F(); break;
-			case Abs_RMW_Stage5_LSR: Abs_RMW_Stage5_LSR_F(); break;
-			case Abs_RMW_Stage6: Abs_RMW_Stage6_F(); break;
 			case StackEA_1: StackEA_1_F(); break;
 			case StkRelInd3_READ: StkRelInd3_READ_F(); break;
 			case StkRelInd3_READa: StkRelInd3_READa_F(); break;
@@ -531,6 +495,12 @@ namespace SNESHawk
 			case End_EOR: End_EOR_F(); break;
 			case End_SBC: End_SBC_F(); break;
 			case End_BIT: End_BIT_F(); break;
+			case op_ASL: op_ASL_F(); break;
+			case op_ROL: op_ROL_F(); break;
+			case op_LSR: op_LSR_F(); break;
+			case op_ROR: op_ROR_F(); break;
+			case op_DEC: op_DEC_F(); break;
+			case op_INC: op_INC_F(); break;
 			case DBR_EA_READ: DBR_EA_READ_F(); break;
 			case DBR_EA_READa: DBR_EA_READa_F(); break;
 			case DBR_EA_STA: DBR_EA_STA_F(); break;
@@ -541,6 +511,8 @@ namespace SNESHawk
 			case DBR_EA_STXa: DBR_EA_STXa_F(); break;
 			case DBR_EA_STZ: DBR_EA_STZ_F(); break;
 			case DBR_EA_STZa: DBR_EA_STZa_F(); break;
+			case DBR_EA_STU: DBR_EA_STU_F(); break;
+			case DBR_EA_STUa: DBR_EA_STUa_F(); break;
 
 			case End_BranchSpecial: End_BranchSpecial_F(); break;
 			}
@@ -880,7 +852,7 @@ namespace SNESHawk
 			RelBranch_Stage2_F();
 		}
 
-		void RelBranch_Stage2_A_F()
+		void RelBranch_Stage2_BRA_F()
 		{
 			branch_taken = true;
 			RelBranch_Stage2_F();
@@ -942,6 +914,8 @@ namespace SNESHawk
 
 		void SKP_F() { mi += 6; }
 
+		void BRT_F() { if (!branch_taken) { mi += 24; } }
+
 		void DecS_F() { DummyReadMemory((uint16_t)(0x100 | --S)); }
 
 		void IncS_F() { DummyReadMemory((uint16_t)(0x100 | S++)); }
@@ -953,12 +927,6 @@ namespace SNESHawk
 		void PullPCL_F() { PC &= 0xFF00; PC |= ReadMemory((uint16_t)(S++ + 0x100)); }
 
 		void PullPCH_NoInc_F() { PC &= 0xFF; PC |= (uint16_t)(ReadMemory((uint16_t)(S + 0x100)) << 8); }
-
-		void ZpIdx_Stage3_X_F() { ReadMemory(opcode2); opcode2 = (uint8_t)(opcode2 + X); }
-
-		void ZpIdx_RMW_Stage4_F() 	{ alu_temp = ReadMemory(opcode2); }
-
-		void ZpIdx_RMW_Stage6_F() { WriteMemory(opcode2, (uint8_t)alu_temp); }
 
 		void dir_READ_F() {}
 
@@ -979,6 +947,10 @@ namespace SNESHawk
 		void dir_STZ_F() {}
 
 		void dir_STZa_F() {}
+
+		void dir_STU_F() {}
+
+		void dir_STUa_F() {}
 
 		void _Cpx_F()
 		{
@@ -1220,139 +1192,21 @@ namespace SNESHawk
 			NZ_A_F();
 		}
 
+		void Imp_INC_A_F()
+		{
+
+		}
+
+		void Imp_DEC_A_F()
+		{
+
+		}
+
 		void JMP_abs_F() { PC = (uint16_t)((ReadMemory(PBR | PC) << 8) + opcode2); }
 
 		void BRL_F() { PC = (uint16_t)((opcode3 << 8) + opcode2); }
 
 		void IncPC_F() { ReadMemory(PBR | PC); PC++; }
-
-		void ZP_RMW_Stage3_F() { alu_temp = ReadMemory(opcode2); }
-
-		void ZP_RMW_Stage5_F() { WriteMemory(opcode2, (uint8_t)alu_temp); }
-
-		void ZP_RMW_INC_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			alu_temp = (uint8_t)((alu_temp + 1) & 0xFF);
-			P = (uint8_t)((P & 0x7D) | TableNZ[alu_temp]);
-		}
-
-		void ZP_RMW_DEC_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			alu_temp = (uint8_t)((alu_temp - 1) & 0xFF);
-			P = (uint8_t)((P & 0x7D) | TableNZ[alu_temp]);
-		}
-
-		void ZP_RMW_ASL_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)(value8 << 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void ZP_RMW_LSR_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void ZP_RMW_ROR_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void ZP_RMW_ROL_F()
-		{
-			WriteMemory(opcode2, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_Stage3_X_F()
-		{
-			opcode3 = ReadMemory(PBR | PC);
-			PC++;
-			alu_temp = opcode2 + X;
-			ea = (opcode3 << 8) + (alu_temp & 0xFF);
-		}
-
-		void AbsIdx_Stage4_F()
-		{
-			//bleh.. redundant code to make sure we don't clobber alu_temp before using it to decide whether to change ea
-
-			if (((alu_temp & 0x100) == 0x100))
-			{
-				alu_temp = ReadMemory((uint16_t)ea);
-				ea = (uint16_t)(ea + 0x100);
-			}
-			else alu_temp = ReadMemory((uint16_t)ea);
-		}
-
-		void AbsIdx_RMW_Stage5_F() { alu_temp = ReadMemory((uint16_t)ea); }
-
-		void AbsIdx_RMW_Stage7_F() 	{ WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
-
-		void AbsIdx_RMW_Stage6_DEC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			alu_temp = value8 = (uint8_t)(alu_temp - 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_INC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			alu_temp = value8 = (uint8_t)(alu_temp + 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_ROL_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_LSR_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_ASL_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)(value8 << 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void AbsIdx_RMW_Stage6_ROR_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
 
 		void AbsInd_JMP_Stage4_F() { ea = (opcode3 << 8) + opcode2; alu_temp = ReadMemory((uint16_t)ea); }
 
@@ -1362,62 +1216,6 @@ namespace SNESHawk
 			alu_temp += ReadMemory((uint16_t)ea) << 8;
 			PC = (uint16_t)alu_temp;
 		}
-
-		void Abs_RMW_Stage4_F() { ea = (opcode3 << 8) + opcode2; alu_temp = ReadMemory((uint16_t)ea); }
-
-		void Abs_RMW_Stage5_INC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)(alu_temp + 1);
-			alu_temp = value8;
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_DEC_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)(alu_temp - 1);
-			alu_temp = value8;
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_ASL_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 0x80) != 0);
-			alu_temp = value8 = (uint8_t)(value8 << 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_ROR_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
-			FlagCset((temp8 & 1) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_ROL_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = temp8 = (uint8_t)alu_temp;
-			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
-			FlagCset((temp8 & 0x80) != 0);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage5_LSR_F()
-		{
-			WriteMemory((uint16_t)ea, (uint8_t)alu_temp);
-			value8 = (uint8_t)alu_temp;
-			FlagCset((value8 & 1) != 0);
-			alu_temp = value8 = (uint8_t)(value8 >> 1);
-			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
-		}
-
-		void Abs_RMW_Stage6_F() { WriteMemory((uint16_t)ea, (uint8_t)alu_temp); }
 
 		void REP_F() { P ^= opcode2; }
 		void SEP_F() { P ^= opcode2; }
@@ -1557,16 +1355,79 @@ namespace SNESHawk
 			ExecuteOneRetry();
 		}
 
+		void op_ASL_F() 
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			value8 = (uint8_t)alu_temp;
+			FlagCset((value8 & 0x80) != 0);
+			alu_temp = value8 = (uint8_t)(value8 << 1);
+			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
+		}
+
+		void op_ROL_F() 
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			value8 = temp8 = (uint8_t)alu_temp;
+			alu_temp = value8 = (uint8_t)((value8 << 1) | (P & 1));
+			FlagCset((temp8 & 0x80) != 0);
+			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
+		}
+
+		void op_LSR_F()
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			value8 = (uint8_t)alu_temp;
+			FlagCset((value8 & 1) != 0);
+			alu_temp = value8 = (uint8_t)(value8 >> 1);
+			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
+		}
+
+		void op_ROR_F() 
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			value8 = temp8 = (uint8_t)alu_temp;
+			alu_temp = value8 = (uint8_t)((value8 >> 1) | ((P & 1) << 7));
+			FlagCset((temp8 & 1) != 0);
+			P = (uint8_t)((P & 0x7D) | TableNZ[value8]);
+		}
+
+		void op_DEC_F() 
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			alu_temp = (uint8_t)((alu_temp - 1) & 0xFF);
+			P = (uint8_t)((P & 0x7D) | TableNZ[alu_temp]);
+		}
+
+		void op_INC_F() 
+		{
+			WriteMemory(opcode2, (uint8_t)alu_temp);
+			alu_temp = (uint8_t)((alu_temp + 1) & 0xFF);
+			P = (uint8_t)((P & 0x7D) | TableNZ[alu_temp]);
+		}
+
 		void DBR_EA_READ_F() {}
+
 		void DBR_EA_READa_F() {}
+
 		void DBR_EA_STA_F() {}
+
 		void DBR_EA_STAa_F() {}
+
 		void DBR_EA_STY_F() {}
+
 		void DBR_EA_STYa_F() {}
+
 		void DBR_EA_STX_F() {}
+
 		void DBR_EA_STXa_F() {}
+
 		void DBR_EA_STZ_F() {}
+
 		void DBR_EA_STZa_F() {}
+
+		void DBR_EA_STU_F() {}
+
+		void DBR_EA_STUa_F() {}
 
 		void End_BranchSpecial_F() { End_F(); }
 
@@ -2330,32 +2191,32 @@ namespace SNESHawk
 	// 0x03
 	Fetch2,					DirectEA_RD,		TSB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB d
 	// 0x05
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ASL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d
+	// 0x06
 	// 0x07
 	// 0x08
 	// 0x09
-	Imp_ASL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL A
+	// 0x0A
 	// 0x0B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB a
 	// 0x0D
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ASL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a
+	// 0x0E
 	// 0x0F
 	//0x10---------------
-	RelBranch_Stage2_BPL,	End ,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BPL r
+	// 0x10
 	// 0x11
 	// 0x12
 	// 0x13
 	Fetch2,					DirectEA_RD,		TRB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB d
 	// 0x15
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ASL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL d,x
+	// 0x16
 	// 0x17
 	// 0x18
 	// 0x19
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC A
+	// 0x1A
 	// 0x1B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB a
 	// 0x1D
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ASL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ASL a,x
+	// 0x1E
 	// 0x1F
 	//0x20-----------------
 	Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR a
@@ -2364,32 +2225,32 @@ namespace SNESHawk
 	// 0x23
 	// 0x24
 	// 0x25
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROL,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d
+	// 0x26
 	// 0x27
 	FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLP s
 	// 0x29
-	Imp_ROL_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL A
+	// 0x2A
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLD s
 	// 0x2C
 	// 0x2D
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROL,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a
+	// 0x2E
 	// 0x2F
 	//0x30-----------------
-	RelBranch_Stage2_BMI,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BMI r
+	// 0x30
 	// 0x31
 	// 0x32
 	// 0x33
-	// 0x3$
+	// 0x34
 	// 0x35
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROL,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL d,x
+	// 0x36
 	// 0x37
 	// 0x38
 	// 0x39
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC A
 	// 0x3A
+	// 0x3B
 	// 0x3C
 	// 0x3D
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROL,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROL a,x
+	// 0x3E
 	// 0x3F
 	//0x40-----------------
 	FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTI s
@@ -2398,24 +2259,24 @@ namespace SNESHawk
 	// 0x43
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVP xyc
 	// 0x45
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_LSR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d
+	// 0x46
 	// 0x47
 	// 0x48
 	// 0x49
-	Imp_LSR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR A
+	// 0x4A
 	// 0x4B
 	Fetch2,					JMP_abs,			End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP a
 	// 0x4D
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_LSR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a
+	// 0x4E
 	// 0x4F
 	//0x50-------------------
-	RelBranch_Stage2_BVC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVC r
+	// 0x50
 	// 0x51
 	// 0x52
 	// 0x53
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVN xyc
 	// 0x55
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_LSR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR d,x
+	// 0x56
 	// 0x57
 	// 0x58
 	// 0x59
@@ -2423,7 +2284,7 @@ namespace SNESHawk
 	// 0x5B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP al
 	// 0x5D
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_LSR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// LSR a,x
+	// 0x5E
 	// 0x5F
 	//0x60------------------
 	FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTS s
@@ -2432,24 +2293,24 @@ namespace SNESHawk
 	// 0x63
 	// 0x64
 	// 0x65
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_ROR,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d
+	// 0x66
 	// 0x67
 	FetchDummy,				IncS,				PullA_NoInc,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLA s
 	// 0x69
-	Imp_ROR_A,				End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR A
+	// 0x6A
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTL s
 	Fetch2,					Fetch3,				AbsInd_JMP_Stage4,		AbsInd_JMP_Stage5,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a)
 	// 0x6D
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_ROR,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a
+	// 0x6E
 	// 0x6F
 	//0x70-----------------
-	RelBranch_Stage2_BVS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BVS r
+	// 0x70
 	// 0x71
 	// 0x72
 	// 0x73
 	// 0x74
 	// 0x75
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_ROR,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR d,x
+	// 0x76
 	// 0x77
 	// 0x78
 	// 0x79
@@ -2457,10 +2318,10 @@ namespace SNESHawk
 	// 0x7B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
 	// 0x7D
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_ROR,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// ROR a,x]
+	// 0x7E
 	// 0x7F
 	//0x80---------------
-	RelBranch_Stage2_A,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRA r
+	// 0x80
 	// 0x81
 	Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRL rl
 	// 0x83
@@ -2477,7 +2338,7 @@ namespace SNESHawk
 	// 0x8E
 	// 0x8F
 	//0x90------------------
-	RelBranch_Stage2_BCC,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCC r
+	// 0x90
 	// 0x91
 	// 0x92
 	// 0x93
@@ -2511,7 +2372,7 @@ namespace SNESHawk
 	// 0xAE
 	// 0xAF
 	//0xB0------------------
-	RelBranch_Stage2_BCS,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BCS r
+	// 0xB0
 	// 0xB1
 	// 0xB2
 	// 0xB3
@@ -2528,30 +2389,30 @@ namespace SNESHawk
 	// 0xBE
 	// 0xBF
 	//0xC0----------------
-	// 0C0
+	// 0xC0
 	// 0xC1
 	Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// REP #
 	// 0xC3
 	// 0xC4
 	// 0xC5
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_DEC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d
+	// 0xC6
 	// 0xC7
 	// 0xC8
 	// 0xC9
 	// 0xCA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WAI i
-	Fetch2,					Fetch3,				Abs_READ_CPY,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPY a
+	// 0xCC
 	// 0xCD
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_DEC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a
+	// 0xCE
 	// 0xCF
 	//0xD0-------------------
-	RelBranch_Stage2_BNE,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BNE r
+	// 0xD0
 	// 0xD1
 	// 0xD2
 	// 0xD3
 	Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEI s
 	// 0xD5
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_DEC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC d,x
+	// 0xD6
 	// 0xD7
 	// 0xD8
 	// 0xD9
@@ -2559,7 +2420,7 @@ namespace SNESHawk
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STP i
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JML (a)
 	// 0xDD
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_DEC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// DEC a,x
+	// 0xDE
 	// 0xDF
 	//0xE0--------------------
 	// 0xE0
@@ -2568,24 +2429,24 @@ namespace SNESHawk
 	// 0xE3
 	// 0xE4
 	// 0xE5
-	Fetch2,					ZP_RMW_Stage3,		ZP_RMW_INC,				ZP_RMW_Stage5,				End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d
+	// 0xE6
 	// 0xE7
 	// 0xE8
 	// 0xE9
 	// 0xEA
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XBA i
-	Fetch2,					Fetch3,				Abs_READ_CPX,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// CPX a
+	// 0xEC
 	// 0xED
-	Fetch2,					Fetch3,				Abs_RMW_Stage4,			Abs_RMW_Stage5_INC,			Abs_RMW_Stage6,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a
+	// 0xEE
 	// 0xEF
 	//0xF0--------------------
-	RelBranch_Stage2_BEQ,	End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BEQ r
+	// 0xF0
 	// 0xF1
 	// 0xF2
 	// 0xF3
 	Fetch2,					Fetch3,				PushPERH,				PushPERL,					End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEA s
 	// 0xF5
-	Fetch2,					ZpIdx_Stage3_X,		ZpIdx_RMW_Stage4,		ZP_RMW_INC,					ZpIdx_RMW_Stage6,			End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC d,x
+	// 0xF6
 	// 0xF7
 	// 0xF8
 	// 0xF9
@@ -2593,7 +2454,7 @@ namespace SNESHawk
 	// 0xFB
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
 	// 0xFD
-	Fetch2,					AbsIdx_Stage3_X,	AbsIdx_Stage4,			AbsIdx_RMW_Stage5,			AbsIdx_RMW_Stage6_INC,		AbsIdx_RMW_Stage7,			End,						NOP,		NOP,		NOP,		NOP,		NOP,	// INC a,x
+	// 0xFE
 	// 0xFF
 	//0x100--------------------
 	Fetch1,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1
@@ -2628,15 +2489,21 @@ namespace SNESHawk
 			build_ds_instructions();
 			build_dsii_instructions();
 			build_d_instructions();
+			build_d_rmw_instructions();
 			build_dx_instructions();
+			build_dx_rmw_instructions();
 			build_dil_instructions();
 			build_dily_instructions();
 			build_imm_instructions();
 			build_ayx_instructions();
+			build_ayx_rmw_instructions();
 			build_a_instructions();
+			build_a_rmw_instructions();
 			build_al_instructions();
 			build_alx_instructions();
 			build_i_instructions();
+			build_a_ops_instructions();
+			build_r_instructions();
 
 		}
 
@@ -2914,6 +2781,31 @@ namespace SNESHawk
 			assemble_instruction2(0x64, dir_STZ, replace_position, dir_STZa, replace_position2, &temp_D[0]); // STZ
 		}
 
+		// 'direct' d (RMW)
+		void build_d_rmw_instructions()
+		{
+			Uop temp_D[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READ,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		op_ASL,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_STU,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_STUa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 8;
+			int replace_position = 4 * 12 + 11;
+
+			assemble_instruction(0x06, op_ASL, replace_position, &temp_D[0]); // ASL
+			assemble_instruction(0x26, op_ROL, replace_position, &temp_D[0]); // ROL
+			assemble_instruction(0x46, op_LSR, replace_position, &temp_D[0]); // LSR
+			assemble_instruction(0x66, op_ROR, replace_position, &temp_D[0]); // ROR
+			assemble_instruction(0xC6, op_DEC, replace_position, &temp_D[0]); // DEC
+			assemble_instruction(0xE6, op_INC, replace_position, &temp_D[0]); // INC
+		}
+
 		// TODO: need to adjust for LDX LDY / STX STY
 		// 'direct x' d,x
 		// 'direct y' d,y
@@ -2960,6 +2852,32 @@ namespace SNESHawk
 			temp_DX[5 * 12 + 11] = End_LDX;
 
 			assemble_instruction2(0x94, dir_READ, replace_position, dir_READa, replace_position2, &temp_DX[0]); // LDX
+		}
+
+		// 'direct x' d,x (RMW)
+		void build_dx_rmw_instructions()
+		{
+			Uop temp_D[9 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READ,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		op_ASL,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_STU,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_STUa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 9;
+			int replace_position = 5 * 12 + 11;
+
+			assemble_instruction(0x16, op_ASL, replace_position, &temp_D[0]); // ASL
+			assemble_instruction(0x36, op_ROL, replace_position, &temp_D[0]); // ROL
+			assemble_instruction(0x56, op_LSR, replace_position, &temp_D[0]); // LSR
+			assemble_instruction(0x76, op_ROR, replace_position, &temp_D[0]); // ROR
+			assemble_instruction(0xD6, op_DEC, replace_position, &temp_D[0]); // DEC
+			assemble_instruction(0xF6, op_INC, replace_position, &temp_D[0]); // INC
 		}
 
 		// 'direct indirect long' [d]
@@ -3116,6 +3034,32 @@ namespace SNESHawk
 			assemble_instruction(0x3C, End_BIT, replace_position, &temp_DAY[0]); // BIT
 		}
 
+		// 'absolute x' a,x (RMW)
+		void build_ayx_rmw_instructions()
+		{
+			Uop temp_DAY[9 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Abs_Fetch_EA_Y,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_READ,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_READa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		op_ASL,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_STU,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_STUa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 9;
+			int replace_position = 5 * 12 + 11;
+
+			assemble_instruction(0x1E, op_ASL, replace_position, &temp_DAY[0]); // ASL
+			assemble_instruction(0x3E, op_ROL, replace_position, &temp_DAY[0]); // ROL
+			assemble_instruction(0x5E, op_LSR, replace_position, &temp_DAY[0]); // LSR
+			assemble_instruction(0x7E, op_ROR, replace_position, &temp_DAY[0]); // ROR
+			assemble_instruction(0xDE, op_DEC, replace_position, &temp_DAY[0]); // DEC
+			assemble_instruction(0xFE, op_INC, replace_position, &temp_DAY[0]); // INC
+		}
+
 		// 'absolute' a
 		void build_a_instructions()
 		{
@@ -3141,6 +3085,8 @@ namespace SNESHawk
 			assemble_instruction(0xAC, End_LDY, replace_position, &temp_A[0]); // LDY
 			assemble_instruction(0xAE, End_LDX, replace_position, &temp_A[0]); // LDX
 			assemble_instruction(0x2C, End_BIT, replace_position, &temp_A[0]); // BIT
+			assemble_instruction(0xCC, End_CPY, replace_position, &temp_A[0]); // CPY
+			assemble_instruction(0xEC, End_CPX, replace_position, &temp_A[0]); // CPX
 
 			// need to change the reads to writes for STA
 			temp_A[2 * 12 + 11] = DBR_EA_STA;
@@ -3162,6 +3108,31 @@ namespace SNESHawk
 			temp_A[3 * 12 + 11] = DBR_EA_STZa;
 
 			assemble_instruction(0x9C, End, replace_position, &temp_A[0]); // STZ
+		}
+
+		// 'absolute' a (RMW)
+		void build_a_rmw_instructions()
+		{
+			Uop temp_A[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Abs_Fetch_EA,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_READ,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_READa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		op_ASL,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_STU,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		DBR_EA_STUa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 8;
+			int replace_position = 4 * 12 + 11;
+
+			assemble_instruction(0x0E, op_ASL, replace_position, &temp_A[0]); // ASL
+			assemble_instruction(0x2E, op_ROL, replace_position, &temp_A[0]); // ROL
+			assemble_instruction(0x4E, op_LSR, replace_position, &temp_A[0]); // LSR
+			assemble_instruction(0x6E, op_ROR, replace_position, &temp_A[0]); // ROR
+			assemble_instruction(0xCE, op_DEC, replace_position, &temp_A[0]); // DEC
+			assemble_instruction(0xEE, op_INC, replace_position, &temp_A[0]); // INC
 		}
 
 		// 'absolute long' al
@@ -3266,6 +3237,49 @@ namespace SNESHawk
 
 			assemble_instruction(0x58, Imp_CLI, replace_position, &temp_I[0]); // CLI
 			assemble_instruction(0x78, Imp_SEI, replace_position, &temp_I[0]); // SEI
+		}
+
+		// 'implied A' A
+		void build_a_ops_instructions()
+		{
+			Uop temp_AO[2 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Imp_ASL_A,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 2;
+			int replace_position = 0 * 12 + 11;
+
+			assemble_instruction(0x0A, Imp_ASL_A, replace_position, &temp_AO[0]); // ASL
+			assemble_instruction(0x1A, Imp_INC_A, replace_position, &temp_AO[0]); // INC
+			assemble_instruction(0x2A, Imp_ROL_A, replace_position, &temp_AO[0]); // ROL
+			assemble_instruction(0x3A, Imp_DEC_A, replace_position, &temp_AO[0]); // DEC
+			assemble_instruction(0x4A, Imp_LSR_A, replace_position, &temp_AO[0]); // LSR
+			assemble_instruction(0x6A, Imp_ROR_A, replace_position, &temp_AO[0]); // ROR
+		}
+
+		// 'relative' r
+		void build_r_instructions()
+		{
+			Uop temp_AO[4 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		RelBranch_Stage2_BPL,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 4;
+			int replace_position = 0 * 12 + 11;
+
+			assemble_instruction(0x10, RelBranch_Stage2_BPL, replace_position, &temp_AO[0]); // BPL
+			assemble_instruction(0x30, RelBranch_Stage2_BMI, replace_position, &temp_AO[0]); // BMI
+			assemble_instruction(0x50, RelBranch_Stage2_BVC, replace_position, &temp_AO[0]); // BVC
+			assemble_instruction(0x70, RelBranch_Stage2_BVS, replace_position, &temp_AO[0]); // BVS
+			assemble_instruction(0x80, RelBranch_Stage2_BRA, replace_position, &temp_AO[0]); // BRA
+			assemble_instruction(0x90, RelBranch_Stage2_BCC, replace_position, &temp_AO[0]); // BCC
+			assemble_instruction(0xB0, RelBranch_Stage2_BCS, replace_position, &temp_AO[0]); // BCS
+			assemble_instruction(0xD0, RelBranch_Stage2_BNE, replace_position, &temp_AO[0]); // BNE
+			assemble_instruction(0xF0, RelBranch_Stage2_BEQ, replace_position, &temp_AO[0]); // BEQ
 		}
 
 		void assemble_instruction(int op, Uop to_be_replaced, int position, Uop *temp_array) 
