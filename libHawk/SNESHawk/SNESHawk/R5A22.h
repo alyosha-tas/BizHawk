@@ -170,7 +170,9 @@ namespace SNESHawk
 			Absl_STA, Absl_STAa,
 
 			IncS, DecS,
-			PushPCL, PushPCH, PushPBR, PushPBR_BRK, PushPERH, PushPERL, PushP, PullP, PullPCL, PullPCH_NoInc, PullA_NoInc, PullP_NoInc,
+			PushPCL, PushPCH, PushPBR, PushPBR_BRK, PushPERH, PushPERL, PushPEAH, PushPEAL, PushPEIH, PushPEIL,
+			PushP, PullP, PullPCL, PullPCH_NoInc, PullA_NoInc, PullB_NoInc, PullP_NoInc,
+			PullYL, PullYH_NoInc, PullXL, PullXH_NoInc, PullDL, PullDH_NoInc,
 			PushA, PushB, PushK, PushDH, PushDL, PushYH, PushYL, PushXH, PushXL,
 			PushP_BRK, PushP_COP, PushP_NMI, PushP_IRQ, PushP_Reset, PushDummy,
 			FetchPCLVector, FetchPCHVector, //todo - may not need these ?? can reuse fetch2 and fetch3?
@@ -329,6 +331,10 @@ namespace SNESHawk
 			case PushPBR_BRK: PushPBR_BRK_F(); break;
 			case PushPERH: PushPERH_F(); break;
 			case PushPERL: PushPERL_F(); break;
+			case PushPEAH: PushPEAH_F(); break;
+			case PushPEAL: PushPEAL_F(); break;
+			case PushPEIH: PushPEIH_F(); break;
+			case PushPEIL: PushPEIL_F(); break;
 			case PushP_BRK: PushP_BRK_F(); break;
 			case PushP_COP: PushP_COP_F(); break;
 			case PushP_IRQ: PushP_IRQ_F(); break;
@@ -406,6 +412,12 @@ namespace SNESHawk
 			case PullP: PullP_F(); break;
 			case PullPCL: PullPCL_F(); break;
 			case PullPCH_NoInc: PullPCH_NoInc_F(); break;
+			case PullYL: PullYL_F(); break;
+			case PullYH_NoInc: PullYH_NoInc_F(); break;
+			case PullXL: PullXL_F(); break;
+			case PullXH_NoInc: PullXH_NoInc_F(); break;
+			case PullDL: PullDL_F(); break;
+			case PullDH_NoInc: PullDH_NoInc_F(); break;
 			case dir_READ: dir_READ_F();
 			case dir_READa: dir_READa_F();
 			case dir_STA: dir_STA_F();
@@ -441,6 +453,7 @@ namespace SNESHawk
 			case PushP: PushP_F(); break;
 			case PushA: PushA_F(); break;
 			case PullA_NoInc: PullA_NoInc_F(); break;
+			case PullB_NoInc: PullB_NoInc_F(); break;
 			case PullP_NoInc: PullP_NoInc_F(); break;
 			case Imp_ASL_A: Imp_ASL_A_F(); break;
 			case Imp_ROL_A: Imp_ROL_A_F(); break;
@@ -629,6 +642,14 @@ namespace SNESHawk
 		{
 			WriteMemory((uint16_t)(S-- + 0x100), (uint8_t)(PC + opcode3)); 
 		}
+
+		void PushPEAH_F() { WriteMemory((uint16_t)(S-- + 0x100), opcode3); }
+
+		void PushPEAL_F() { WriteMemory((uint16_t)(S-- + 0x100), opcode2); }
+
+		void PushPEIH_F() {}
+
+		void PushPEIL_F() {}
 
 		void PushP_BRK_F()
 		{
@@ -928,6 +949,18 @@ namespace SNESHawk
 
 		void PullPCH_NoInc_F() { PC &= 0xFF; PC |= (uint16_t)(ReadMemory((uint16_t)(S + 0x100)) << 8); }
 
+		void PullYL_F() {}
+
+		void PullYH_NoInc_F() {}
+
+		void PullXL_F() {}
+
+		void PullXH_NoInc_F() {}
+
+		void PullDL_F() {}
+
+		void PullDH_NoInc_F() {}
+
 		void dir_READ_F() {}
 
 		void dir_READa_F() {}
@@ -1148,6 +1181,8 @@ namespace SNESHawk
 		void PushA_F() { WriteMemory((uint16_t)(S-- + 0x100), A); }
 
 		void PullA_NoInc_F() { A = ReadMemory((uint16_t)(S + 0x100)); NZ_A_F(); }
+
+		void PullB_NoInc_F() {}
 
 		void PullP_NoInc_F()
 		{
@@ -2227,10 +2262,10 @@ namespace SNESHawk
 	// 0x25
 	// 0x26
 	// 0x27
-	FetchDummy,				IncS,				PullP_NoInc,			End_ISpecial,				NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLP s
+	// 0x28
 	// 0x29
 	// 0x2A
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLD s
+	// 0x2B
 	// 0x2C
 	// 0x2D
 	// 0x2E
@@ -2295,7 +2330,7 @@ namespace SNESHawk
 	// 0x65
 	// 0x66
 	// 0x67
-	FetchDummy,				IncS,				PullA_NoInc,			End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLA s
+	// 0x68
 	// 0x69
 	// 0x6A
 	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTL s
@@ -2314,7 +2349,7 @@ namespace SNESHawk
 	// 0x77
 	// 0x78
 	// 0x79
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLY s
+	// 0x7A
 	// 0x7B
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
 	// 0x7D
@@ -2323,7 +2358,7 @@ namespace SNESHawk
 	//0x80---------------
 	// 0x80
 	// 0x81
-	Fetch2,					Fetch3,				BRL,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// BRL rl
+	// 0x82
 	// 0x83
 	// 0x84
 	// 0x85
@@ -2366,7 +2401,7 @@ namespace SNESHawk
 	// 0xA8
 	// 0xA9
 	// 0xAA
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLB s
+	// 0xAB
 	// 0xAC
 	// 0xAD
 	// 0xAE
@@ -2410,7 +2445,7 @@ namespace SNESHawk
 	// 0xD1
 	// 0xD2
 	// 0xD3
-	Fetch2,					Fetch3,				NOP,					PushPERH,					PushPERL,					End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEI s
+	// 0xD4
 	// 0xD5
 	// 0xD6
 	// 0xD7
@@ -2444,13 +2479,13 @@ namespace SNESHawk
 	// 0xF1
 	// 0xF2
 	// 0xF3
-	Fetch2,					Fetch3,				PushPERH,				PushPERL,					End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PEA s
+	// 0xF4
 	// 0xF5
 	// 0xF6
 	// 0xF7
 	// 0xF8
 	// 0xF9
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// PLX s
+	// 0xFA
 	// 0xFB
 	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
 	// 0xFD
@@ -2559,7 +2594,7 @@ namespace SNESHawk
 			temp_PHvl[1 * 12] = XYT;
 
 			assemble_instruction2(0x5A, PushYH, replace_position, PushYL, replace_position2, &temp_PHvl[0]); // PHY
-			assemble_instruction2(0xDA, PushXH, replace_position, PushXL, replace_position2, &temp_PHvl[0]); // PHY
+			assemble_instruction2(0xDA, PushXH, replace_position, PushXL, replace_position2, &temp_PHvl[0]); // PHX
 
 			op = 0x42; // WDM
 			Uop temp_WDM[4 * 12] =
@@ -2580,12 +2615,70 @@ namespace SNESHawk
 				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
 			};
 			for (int i = 0; i < 6 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PER[i]; }
+
+			op = 0xD4; // PEI
+			Uop temp_PEI[7 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READ,
+				NOP, CHE, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		dir_READa,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPEIH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPEIL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 7 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PEI[i]; }
+
+			op = 0xF4; // PEA
+			Uop temp_PEA[5 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch3,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPEAH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPEAL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 5 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_PEA[i]; }
+
+			Uop temp_PLv[4 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		IncS,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullP_NoInc,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End_ISpecial
+			};
+			num_uops = 4;
+			replace_position = 2 * 12 + 11;
+
+			assemble_instruction(0x28, PullP_NoInc, replace_position, &temp_PLv[0]); // PLP
+
+			// change to normal end
+			temp_PLv[3 * 12 + 11] = End;
+
+			assemble_instruction(0x68, PullA_NoInc, replace_position, &temp_PLv[0]); // PLA
+			assemble_instruction(0xAB, PullB_NoInc, replace_position, &temp_PLv[0]); // PLB
+
+			Uop temp_PLvl[5 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		IncS,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullP_NoInc,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullP_NoInc,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 5;
+			replace_position = 2 * 12 + 11;
+			replace_position2 = 3 * 12 + 11;
+
+			assemble_instruction2(0x2B, PullDL, replace_position, PullDH_NoInc, replace_position2, &temp_PHvl[0]); // PLD
+			// TODO: adjust for X and Y variable length
+			assemble_instruction2(0x7A, PullYL, replace_position, PullYH_NoInc, replace_position2, &temp_PHvl[0]); // PLY
+			assemble_instruction2(0xFA, PullXL, replace_position, PullYH_NoInc, replace_position2, &temp_PHvl[0]); // PLX
 		}
 
 		// 'direct indexed indirect' (d,x)
 		void build_diix_instructions() 
 		{
-			op = 0x01; // ORA
 			Uop temp_DIIX[8 * 12] =
 			{
 				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
@@ -3280,6 +3373,16 @@ namespace SNESHawk
 			assemble_instruction(0xB0, RelBranch_Stage2_BCS, replace_position, &temp_AO[0]); // BCS
 			assemble_instruction(0xD0, RelBranch_Stage2_BNE, replace_position, &temp_AO[0]); // BNE
 			assemble_instruction(0xF0, RelBranch_Stage2_BEQ, replace_position, &temp_AO[0]); // BEQ
+
+			op = 0x82; // brl
+			Uop temp_BRL[4 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch3,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		BRL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 4 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_BRL[i]; }
 		}
 
 		void assemble_instruction(int op, Uop to_be_replaced, int position, Uop *temp_array) 
