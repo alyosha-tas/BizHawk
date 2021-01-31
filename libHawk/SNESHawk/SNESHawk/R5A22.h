@@ -103,9 +103,11 @@ namespace SNESHawk
 			// branch taken
 			BRT,
 
+			Wait, STP, XBA,
+
 			// basic operations
 			End_LDA, End_LDX, End_LDY, End_ORA, End_CMP, End_CPX, End_CPY, End_ADC, End_AND, End_EOR, End_SBC, End_BIT,
-			op_ASL, op_ROL, op_LSR, op_ROR, op_DEC, op_INC,
+			op_ASL, op_ROL, op_LSR, op_ROR, op_DEC, op_INC, op_TSB, op_TRB,
 
 			// basic read and write operations
 			DBR_EA_READ, DBR_EA_READa,
@@ -115,7 +117,7 @@ namespace SNESHawk
 			DBR_EA_STZ, DBR_EA_STZa,
 			DBR_EA_STU, DBR_EA_STUa,
 
-			JSR,
+			JSR, JMPa,
 			IncPC, //from RTS
 
 			//[absolute JUMP]
@@ -195,7 +197,7 @@ namespace SNESHawk
 
 			DirectEA_RD,
 
-			REP, SEP, TSB, TRB,
+			REP, SEP,
 
 			End,
 			End_ISpecial, //same as end, but preserves the iflag set by the instruction
@@ -406,9 +408,13 @@ namespace SNESHawk
 			case CHS: CHS_F(); break;
 			case SKP: SKP_F(); break;
 			case BRT: BRT_F(); break;
+			case Wait: Wait_F(); break;
+			case STP: STP_F(); break;
+			case XBA: XBA_F(); break;
 			case DecS: DecS_F(); break;
 			case IncS: IncS_F(); break;
 			case JSR: JSR_F(); break;
+			case JMPa: JMPa_F(); break;
 			case PullP: PullP_F(); break;
 			case PullPCL: PullPCL_F(); break;
 			case PullPCH_NoInc: PullPCH_NoInc_F(); break;
@@ -491,8 +497,8 @@ namespace SNESHawk
 			case DirectEA_RD: DirectEA_RD_F(); break;
 			case REP: REP_F(); break;
 			case SEP: SEP_F(); break;
-			case TSB: TSB_F(); break;
-			case TRB: TRB_F(); break;
+			case op_TSB: op_TSB_F(); break;
+			case op_TRB: op_TRB_F(); break;
 			case End_ISpecial: End_ISpecial_F(); break;
 			case End_NoInt: End_NoInt_F(); break;
 			case End: End_F(); break;
@@ -937,11 +943,19 @@ namespace SNESHawk
 
 		void BRT_F() { if (!branch_taken) { mi += 24; } }
 
+		void Wait_F() {}
+
+		void STP_F() {}
+
+		void XBA_F() {}
+
 		void DecS_F() { DummyReadMemory((uint16_t)(0x100 | --S)); }
 
 		void IncS_F() { DummyReadMemory((uint16_t)(0x100 | S++)); }
 
 		void JSR_F() { PC = (uint16_t)((ReadMemory((uint16_t)(PBR | PC)) << 8) + opcode2); }
+
+		void JMPa_F() {}
 
 		void PullP_F() { P = ReadMemory((uint16_t)(S++ + 0x100)); /*FlagTset(true);*/ }
 
@@ -1531,12 +1545,12 @@ namespace SNESHawk
 			alu_temp = ReadMemory(ea);
 		}
 
-		void TSB_F()
+		void op_TSB_F()
 		{
 
 		}
 
-		void TRB_F()
+		void op_TRB_F()
 		{
 
 		}
@@ -2219,74 +2233,6 @@ namespace SNESHawk
 
 		/*
 {
-	//0x00---------------
-	// 0x00
-	// 0x01
-	// 0x02
-	// 0x03
-	Fetch2,					DirectEA_RD,		TSB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB d
-	// 0x05
-	// 0x06
-	// 0x07
-	// 0x08
-	// 0x09
-	// 0x0A
-	// 0x0B
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TSB a
-	// 0x0D
-	// 0x0E
-	// 0x0F
-	//0x10---------------
-	// 0x10
-	// 0x11
-	// 0x12
-	// 0x13
-	Fetch2,					DirectEA_RD,		TRB,					IndIdx_RMW_Stage8,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB d
-	// 0x15
-	// 0x16
-	// 0x17
-	// 0x18
-	// 0x19
-	// 0x1A
-	// 0x1B
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// TRB a
-	// 0x1D
-	// 0x1E
-	// 0x1F
-	//0x20-----------------
-	Fetch2,					NOP,				PushPCH,				PushPCL,					JSR,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR a
-	// 0x21
-	Fetch2,					Fetch3,				PushPBR,				NOP,						Fetch4,						PushPCH,					PushPCL,					JSL,		NOP,		NOP,		NOP,		NOP,	// JSL al
-	// 0x23
-	// 0x24
-	// 0x25
-	// 0x26
-	// 0x27
-	// 0x28
-	// 0x29
-	// 0x2A
-	// 0x2B
-	// 0x2C
-	// 0x2D
-	// 0x2E
-	// 0x2F
-	//0x30-----------------
-	// 0x30
-	// 0x31
-	// 0x32
-	// 0x33
-	// 0x34
-	// 0x35
-	// 0x36
-	// 0x37
-	// 0x38
-	// 0x39
-	// 0x3A
-	// 0x3B
-	// 0x3C
-	// 0x3D
-	// 0x3E
-	// 0x3F
 	//0x40-----------------
 	FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTI s
 	// 0x41
@@ -2300,7 +2246,7 @@ namespace SNESHawk
 	// 0x49
 	// 0x4A
 	// 0x4B
-	Fetch2,					JMP_abs,			End,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP a
+	// 0x4C
 	// 0x4D
 	// 0x4E
 	// 0x4F
@@ -2355,91 +2301,6 @@ namespace SNESHawk
 	// 0x7D
 	// 0x7E
 	// 0x7F
-	//0x80---------------
-	// 0x80
-	// 0x81
-	// 0x82
-	// 0x83
-	// 0x84
-	// 0x85
-	// 0x86
-	// 0x87
-	// 0x88
-	// 0x89
-	// 0x8A
-	// 0x8B
-	// 0x8C
-	// 0x8D
-	// 0x8E
-	// 0x8F
-	//0x90------------------
-	// 0x90
-	// 0x91
-	// 0x92
-	// 0x93
-	// 0x94
-	// 0x95
-	// 0x96
-	// 0x97
-	// 0x98
-	// 0x99
-	// 0x9A
-	// 0x9B
-	// 0x9C
-	// 0x9D
-	// 0x9E
-	// 0x9F
-	//0xA0-----------------
-	// 0xA0
-	// 0xA1
-	// 0xA2
-	// 0xA3
-	// 0xA4
-	// 0xA5
-	// 0xA6
-	// 0xA7
-	// 0xA8
-	// 0xA9
-	// 0xAA
-	// 0xAB
-	// 0xAC
-	// 0xAD
-	// 0xAE
-	// 0xAF
-	//0xB0------------------
-	// 0xB0
-	// 0xB1
-	// 0xB2
-	// 0xB3
-	// 0xB4
-	// 0xB5
-	// 0xB6
-	// 0xB7
-	// 0xB8
-	// 0xB9
-	// 0xBA
-	// 0xBB
-	// 0xBC
-	// 0xBD
-	// 0xBE
-	// 0xBF
-	//0xC0----------------
-	// 0xC0
-	// 0xC1
-	Fetch2,					Fetch3,				REP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// REP #
-	// 0xC3
-	// 0xC4
-	// 0xC5
-	// 0xC6
-	// 0xC7
-	// 0xC8
-	// 0xC9
-	// 0xCA
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// WAI i
-	// 0xCC
-	// 0xCD
-	// 0xCE
-	// 0xCF
 	//0xD0-------------------
 	// 0xD0
 	// 0xD1
@@ -2457,23 +2318,6 @@ namespace SNESHawk
 	// 0xDD
 	// 0xDE
 	// 0xDF
-	//0xE0--------------------
-	// 0xE0
-	// 0xE1
-	Fetch2,					Fetch3,				SEP,					End,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// SEP #
-	// 0xE3
-	// 0xE4
-	// 0xE5
-	// 0xE6
-	// 0xE7
-	// 0xE8
-	// 0xE9
-	// 0xEA
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// XBA i
-	// 0xEC
-	// 0xED
-	// 0xEE
-	// 0xEF
 	//0xF0--------------------
 	// 0xF0
 	// 0xF1
@@ -2897,6 +2741,8 @@ namespace SNESHawk
 			assemble_instruction(0x66, op_ROR, replace_position, &temp_D[0]); // ROR
 			assemble_instruction(0xC6, op_DEC, replace_position, &temp_D[0]); // DEC
 			assemble_instruction(0xE6, op_INC, replace_position, &temp_D[0]); // INC
+			assemble_instruction(0x04, op_TSB, replace_position, &temp_D[0]); // TSB
+			assemble_instruction(0x14, op_TRB, replace_position, &temp_D[0]); // TRB
 		}
 
 		// TODO: need to adjust for LDX LDY / STX STY
@@ -3061,6 +2907,12 @@ namespace SNESHawk
 			assemble_instruction(0xA0, End_LDY, replace_position, &temp_IMM[0]); // LDY
 			assemble_instruction(0xA2, End_LDX, replace_position, &temp_IMM[0]); // LDX
 			assemble_instruction(0x89, End_BIT, replace_position, &temp_IMM[0]); // BIT
+
+			// REP and SEP are always 3 cycles, need to adjust accordingly
+			temp_IMM[1 * 12 + 11] = REP;
+			assemble_instruction(0xC2, End, replace_position, &temp_IMM[0]); // REP
+			temp_IMM[1 * 12 + 11] = SEP;
+			assemble_instruction(0xE2, End, replace_position, &temp_IMM[0]); // SEP
 		}
 
 		// 'absolute y' a,y
@@ -3201,6 +3053,27 @@ namespace SNESHawk
 			temp_A[3 * 12 + 11] = DBR_EA_STZa;
 
 			assemble_instruction(0x9C, End, replace_position, &temp_A[0]); // STZ
+
+			op = 0x20; // JSR
+			Uop temp_JSR[6 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch3,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		JSR,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 6 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JSR[i]; }
+
+			op = 0x4C; // JMP
+			Uop temp_JMP[3 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		JMPa,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JMP[i]; }
 		}
 
 		// 'absolute' a (RMW)
@@ -3226,6 +3099,8 @@ namespace SNESHawk
 			assemble_instruction(0x6E, op_ROR, replace_position, &temp_A[0]); // ROR
 			assemble_instruction(0xCE, op_DEC, replace_position, &temp_A[0]); // DEC
 			assemble_instruction(0xEE, op_INC, replace_position, &temp_A[0]); // INC
+			assemble_instruction(0x0C, op_TSB, replace_position, &temp_A[0]); // TSB
+			assemble_instruction(0x1C, op_TRB, replace_position, &temp_A[0]); // TRB
 		}
 
 		// 'absolute long' al
@@ -3257,6 +3132,30 @@ namespace SNESHawk
 			temp_AL[4 * 12 + 11] = Absl_STAa;
 
 			assemble_instruction(0x8F, End, replace_position, &temp_AL[0]); // STA
+
+			op = 0x22; // JSL
+			Uop temp_JSL[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch3,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPBR,
+				NOP, SKP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		JSL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch4,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCH,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 8 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JSL[i]; }
+
+			op = 0x5C; // JMP
+			Uop temp_JMP[4 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch2,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch3,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		JMP_abs,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 4 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JMP[i]; }
 		}
 
 		// 'absolute long x' al,x
@@ -3330,6 +3229,33 @@ namespace SNESHawk
 
 			assemble_instruction(0x58, Imp_CLI, replace_position, &temp_I[0]); // CLI
 			assemble_instruction(0x78, Imp_SEI, replace_position, &temp_I[0]); // SEI
+
+			op = 0xCB; // WAI
+			Uop temp_WAI[3 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Wait,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_WAI[i]; }
+
+			op = 0xDB; // STP
+			Uop temp_STP[3 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		STP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_STP[i]; }
+
+			op = 0xEB; // XBA
+			Uop temp_XBA[3 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		XBA,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 3 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_XBA[i]; }
 		}
 
 		// 'implied A' A
