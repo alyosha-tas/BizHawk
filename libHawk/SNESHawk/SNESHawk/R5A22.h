@@ -2231,126 +2231,6 @@ namespace SNESHawk
 
 		#pragma region Instruction Table Building
 
-		/*
-{
-	//0x40-----------------
-	FetchDummy,				IncS,				PullP,					PullPCL,					PullPCH_NoInc,				End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTI s
-	// 0x41
-	// 0x42
-	// 0x43
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVP xyc
-	// 0x45
-	// 0x46
-	// 0x47
-	// 0x48
-	// 0x49
-	// 0x4A
-	// 0x4B
-	// 0x4C
-	// 0x4D
-	// 0x4E
-	// 0x4F
-	//0x50-------------------
-	// 0x50
-	// 0x51
-	// 0x52
-	// 0x53
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// MVN xyc
-	// 0x55
-	// 0x56
-	// 0x57
-	// 0x58
-	// 0x59
-	// 0x5A
-	// 0x5B
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP al
-	// 0x5D
-	// 0x5E
-	// 0x5F
-	//0x60------------------
-	FetchDummy,				IncS,				PullPCL,				PullPCH_NoInc,				IncPC,						End,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTS s
-	// 0x61
-	// 0x62
-	// 0x63
-	// 0x64
-	// 0x65
-	// 0x66
-	// 0x67
-	// 0x68
-	// 0x69
-	// 0x6A
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// RTL s
-	Fetch2,					Fetch3,				AbsInd_JMP_Stage4,		AbsInd_JMP_Stage5,			End,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a)
-	// 0x6D
-	// 0x6E
-	// 0x6F
-	//0x70-----------------
-	// 0x70
-	// 0x71
-	// 0x72
-	// 0x73
-	// 0x74
-	// 0x75
-	// 0x76
-	// 0x77
-	// 0x78
-	// 0x79
-	// 0x7A
-	// 0x7B
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JMP (a,x)
-	// 0x7D
-	// 0x7E
-	// 0x7F
-	//0xD0-------------------
-	// 0xD0
-	// 0xD1
-	// 0xD2
-	// 0xD3
-	// 0xD4
-	// 0xD5
-	// 0xD6
-	// 0xD7
-	// 0xD8
-	// 0xD9
-	// 0xDA
-	End,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// STP i
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JML (a)
-	// 0xDD
-	// 0xDE
-	// 0xDF
-	//0xF0--------------------
-	// 0xF0
-	// 0xF1
-	// 0xF2
-	// 0xF3
-	// 0xF4
-	// 0xF5
-	// 0xF6
-	// 0xF7
-	// 0xF8
-	// 0xF9
-	// 0xFA
-	// 0xFB
-	NOP,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// JSR (a,x)
-	// 0xFD
-	// 0xFE
-	// 0xFF
-	//0x100--------------------
-	Fetch1,					NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1
-	RelBranch_Stage3,		End_BranchSpecial,	NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff
-	RelBranch_Stage4,		End,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff2
-	End_NoInt,				NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_RelativeStuff3
-	//i assume these are dummy fetches.... maybe theyre just nops? supposedly these take 7 cycles so that's the only way i can make sense of it,
-	//one of them might be the next instruction's fetch,		and whatever fetch follows it.
-	//the interrupt would then take place if necessary,		using a cached PC. but im not so sure about that.
-	FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_NMI,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_NMI
-	FetchDummy,				FetchDummy,			PushPCH,				PushPCL,					PushP_IRQ,					FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_IRQ
-	FetchDummy,				FetchDummy,			PushDummy,				PushDummy,					PushP_Reset,				FetchPCLVector,				FetchPCHVector,				End_NoInt,		NOP,	NOP,	NOP,	NOP,	// VOP_RESET
-	Fetch1_Real,			NOP,				NOP,					NOP,						NOP,						NOP,						NOP,						NOP,		NOP,		NOP,		NOP,		NOP,	// VOP_Fetch1_NoInterrupt
-
-};
-*/
-
 		void build_instruction_table()
 		{
 			// fill with nops first
@@ -2383,6 +2263,7 @@ namespace SNESHawk
 			build_i_instructions();
 			build_a_ops_instructions();
 			build_r_instructions();
+			build_misc_instructions();
 
 		}
 
@@ -2518,6 +2399,35 @@ namespace SNESHawk
 			// TODO: adjust for X and Y variable length
 			assemble_instruction2(0x7A, PullYL, replace_position, PullYH_NoInc, replace_position2, &temp_PHvl[0]); // PLY
 			assemble_instruction2(0xFA, PullXL, replace_position, PullYH_NoInc, replace_position2, &temp_PHvl[0]); // PLX
+
+			Uop temp_RT[6 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		IncS,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullPCL,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullPCH_NoInc,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			num_uops = 6;
+			replace_position = 4 * 12 + 11;
+
+			assemble_instruction(0x60, NOP, replace_position, &temp_RT[0]); // RTS
+			// TODO: need to increase S
+			assemble_instruction(0x6B, PullB_NoInc, replace_position, &temp_RT[0]); // RTL
+
+			op = 0x40; // RTI
+			Uop temp_RTI[7 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		IncS,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullP,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullPCL,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PullPCH_NoInc,
+				NOP, CHS, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 7 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_RTI[i]; }
 		}
 
 		// 'direct indexed indirect' (d,x)
@@ -3309,6 +3219,106 @@ namespace SNESHawk
 				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
 			};
 			for (int i = 0; i < 4 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_BRL[i]; }
+		}
+
+		// miscellaneous instructions
+		void build_misc_instructions()
+		{
+			op = 0x6C; // JMP
+			Uop temp_RA[5 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 5 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_RA[i]; }
+
+			op = 0x7C; // JMP
+			Uop temp_RAx[6 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 6 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_RAx[i]; }
+
+			op = 0xDC; // JML
+			Uop temp_JML[6 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 6 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JML[i]; }
+
+			op = 0xFC; // JSR
+			Uop temp_JSR[6 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 6 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JSR[i]; }
+
+			op = 0x44; // MVP
+			Uop temp_JSR[7 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		NOP,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End
+			};
+			for (int i = 0; i < 7 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JSR[i]; }
+
+			op = 0x54; // MVN
+
+			for (int i = 0; i < 7 * 12; i++) { Microcode[op * op_length * 12 + i] = temp_JSR[i]; }
+
+			Uop temp_INST[1 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		Fetch1,
+			};
+			num_uops = 1;
+			int replace_position = 0 * 12 + 11;
+
+			assemble_instruction(0x100, Fetch1, replace_position, &temp_INST[0]); // instruciton 1
+			assemble_instruction(0x104, Fetch1_Real, replace_position, &temp_INST[0]); // Instruction 2
+
+			Uop temp_INST[8 * 12] =
+			{
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				BRT, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchDummy,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCH,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushPCL,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		PushP_NMI,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchPCLVector,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		FetchPCHVector,
+				NOP, CHP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP,		End_NoInt
+			};
+			num_uops = 8;
+			int replace_position = 4 * 12 + 11;
+
+			assemble_instruction(0x101, PushP_NMI, replace_position, &temp_INST[0]); // NMI
+			assemble_instruction(0x102, PushP_IRQ, replace_position, &temp_INST[0]); // IRQ
+
+			temp_INST[2 * 12 + 11] = PushDummy;
+			temp_INST[3 * 12 + 11] = PushDummy;
+
+			assemble_instruction(0x103, PushP_Reset, replace_position, &temp_INST[0]); // Reset
 		}
 
 		void assemble_instruction(int op, Uop to_be_replaced, int position, Uop *temp_array) 
